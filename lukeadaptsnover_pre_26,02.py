@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Mon Feb 26 15:53:24 2024
+
+@author: vsbh19
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Nov 10 09:34:52 2023
 
 @author: vsbh19
@@ -48,13 +56,13 @@ except ValueError:
 except  IndexError: 
     print("Name Error RUNNING BACKUP VARIABLES")
                     #IF RUNNING SCRIPT LOCALLY 
-    filenum = 0
+    filenum = 5
     component = [2]
-    station=  "IWEH"
-    start_day = 31
+    station=  "all"
+    start_day = 29
     end_day = 31.25
-    overlap = 20
-    duration = 40
+    overlap = 80
+    duration =  240
     norm= "max"
     out_to_wav = False
     
@@ -74,56 +82,61 @@ ev0000364000. 60000 samples = 10 minutes
 """
 
 ###############################################SPLIT DATA INTO CHUNKS#####################################
-def split(X, chunk): 
+def split(X, chunk, **args): 
     #print("good")
-    global  x_ret
     
-    #x_ret = np.array(ob)
-    #global X
+        
+    global x_ret
+    station_loc = args["station_loc"] if "station_loc" in args else None
     global data_points_per_chunk
     data_points_per_chunk = int(len(X)/chunk)
-    #print(data_points_per_chunk, len(X), chunk, gap, len(X)/gap)    
-    assert len(stationname) >= 1, "THERE MUST BE AT LEAST ONE STATION"
-    assert  gap % data_points_per_chunk == 0, "CHUNKS MUST BE MULTIPLE OF NUMBER STATIONS"
+    #x_ret = np.array(ob)
+    #global X
+    
+    #print(data_points_per_chunk, len(X), chunk, gannp, len(X)/gap)    
+    
+    
     """
     Ensuring the number of data points per chunk is 
     a multiple of the number of points per stations avoids overlap 
     as each chunk will belong to one station only 
     """
-    if len(stationname) == 1:
+    #print(X.shape); sys.exit()
+    if station_loc != None:
+        x_ret = np.empty((chunk,data_points_per_chunk+2)) #file for chunks
+        for i in range(0, chunk): #ITERATE DATA AND SPLIT INTO CHUNKS 
+            #print(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk].shape)#; sys.exit()
+            x_ret[i,0] = i*data_points_per_chunk #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
+        
+            add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
+            x_ret[i, 1:] = station_loc
+            x_ret[i,2:] = add
+            
+    else: 
         x_ret = np.empty((chunk,data_points_per_chunk+1)) #file for chunks
         for i in range(0, chunk): #ITERATE DATA AND SPLIT INTO CHUNKS 
             x_ret[i,0] = i*data_points_per_chunk #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
         
             add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
-            #print(add.shape); sys.exit()
-            x_ret[i, 1:] = add 
+            x_ret[i, 1:] = add
             #I NEED TO UPLOAD EACH OF XS POSITIION IN TIME HERE 
-    else: ## IF THERE IS MORE THAN ONE STATION 
-        global n, station_loc
-        n = int(gap / data_points_per_chunk) #numbers chunks per station
-        station_loc = 0 
-        x_ret = np.empty((chunk,data_points_per_chunk+2)) #ADDITIONAL BECAUSE WE HAVE MORE STATIONS 
-        loop = 0 
-        for i in range(0, chunk): #ITERATE DATA AND SPLIT INTO CHUNKS 
-            x_ret[i,0] = (i- loop*n +i%n)*data_points_per_chunk #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
-            if i % n == 0 and i != 0:
-                station_loc +=1 #starts at 0, assumes equal number data points per station
-                loop += 1 
-            #if station_loc - int((i+1)*(data_points_per_chunk//gap)) >1:
-            x_ret[i,1] = station_loc
-            add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
-            x_ret[i, 2:] = add
-            
-            #print(add, station_loc)
+     
+
+    return x_ret
+#----------------------------------------------------------------------------------------------------------------------
+def split_multiple_stations(X, test_split, stationname, chunks):
     
+    totalchunks = int(chunks*len(stationname))
+    data_points_per_chunk = int(diff_amount/chunks)
+    big_fat_file = np.empty((totalchunks, data_points_per_chunk +2))
+    #print(X[0:diff_amount,0]); sys.exit()
+    for i,u in enumerate(stationname): 
+        X_return = split(X[i *diff_amount:(i+1)*diff_amount,0], chunks, station_loc = i)
+        big_fat_file[i*chunks:(i+1)*chunks] = X_return 
     X_train, X_test = train_test_split(
-        x_ret, test_size=0.2, shuffle=True, random_state=812) #SPLITS THE TRAINING AND TESTING CHUNKS UP 
-    #sys.exit("Successfully uploaded")
-    del x_ret  # need to test what effect this has on the dataset.
+        big_fat_file, test_size=test_split, shuffle=True, random_state=812) #SPLITS THE TRAINING AND TESTING CHUNKS UP 
     return X_train, X_test
-
-
+#-------------------------------------------------------------------------------------------------------------
 def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS THESE INTO SMALLER WINDOWS
     #print("Good")
     X_return = []
@@ -152,49 +165,57 @@ def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS TH
                 X_return.append(tobe)
                 #plt.plot(u[i*100: (i+duration)*100]); sys.exit()
             # X_return.append(X_chunk) #appends all the window for each chunk
-    else: 
+    elif len(stationname) >= 1: 
+        
         for u in X:  # for each chunk in x val or x train
             #X_chunk = []
             #print(u)
             #global index
             index = u[0] #extract u's location in time (INDEX UNITS0) 
             station = u[1]
+            #print("right")
             #sys.exit()
+            assert length > duration, "YOU HAVE DIVIDE THE DATA INTO TOO SHALLOW CHUNKS"
             for i in range(0, length - (duration+1), duration - overlap):  # less overlap = bigger jump
                 # converts seconds into sameples
                 spec_pos = i*100+index #spectrogram position in time
                 tobe = [spec_pos, station] #the first number of the datafile corresponds to its position in time 
                 add = u[(i+1)*100: (i+1+duration)*100]
-                #print(add)
+                #print("right")
                 #print(add.shape)
                 add = normalize([add], norm = norm) #normalise requires 2d shapoe
                 #print(add); sys.exit()
-                add = np.reshape (add, (4000,)) #reshape it back to original
+                addition = duration*100
+                add = np.reshape (add, (addition,)) #reshape it back to original
                 tobe.append(add) #time stamp at the beginnign of each file
                 
-                #print(tobe); sys.exit()
+                #print(tobe)#; sys.exit()
                 X_return.append(tobe)
                 #plt.plot(u[i*100: (i+duration)*100]); sys.exit()
             # X_return.append(X_chunk) #appends all the window for each chunk
         
     del X
+    #print(X_return)
     #X_return = np.asarray(X_return) 
     return X_return  # all chunks lumped togehter
 
 #------------------------------------------------------------------------------------------------------------------
 def get_metadata(file, station_name):
-    stations = file.keys()
+    try:
+        stations = file.keys()
     #global attributes
-    attributes = np.empty((len(stations), 4))
-    for i, x in enumerate(stations):
-        attributes[i, :] = [float(file[x].attrs[u]) for u in [i for i in file[x].attrs.keys()]]
+        attributes = np.empty((len(stations), 4))
+        for i, x in enumerate(stations):
+            attributes[i, :] = [float(file[x].attrs[u]) for u in [i for i in file[x].attrs.keys()]]
         #global time 
-    mag,time = [i[1] for i in f.attrs.items() if i[0] in ["time", "mag"]]
-    attribute_names = [r for r in f[station_name].attrs.keys()]
-    attribute_names.append("Epicentral time")
+        mag,time = [i[1] for i in f.attrs.items() if i[0] in ["time", "mag"]]
+        attribute_names = [r for r in f[station_name].attrs.keys()]
+        attribute_names.append("Epicentral time")
     
     #attributes[:,0] = attribute_names
-    return attribute_names, attributes, time, mag
+        return attribute_names, attributes, time, mag
+    except ValueError: 
+        print("File Metadata not consistent"); return None, None, None, None
 
 #-----------------------------------------------------------------------------------------------------------------
 if station == "all": 
@@ -203,25 +224,26 @@ if station == "all":
 else:
     stationname = [station]
 #--------------------------------------------------------------------------------------------------------------------  
+diff_amount = int(end_day*samples_per_day) - int(start_day*samples_per_day)
 master_file = np.zeros((len(component),len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))#; sys.exit() #all earthquake data in here!
 with h5py.File(directory + files[filenum]) as f:
     print(f.keys())
-    attribute_names, attributes, time, mag = get_metadata(f, stationname[0]) #ASSIGN ATTRIBUTES TO EACH SPECTRORGRAM!
-    #print(attribute_names, attributes)
-    include_labels = ["Distance from Epicentre", "Elevation (sea level)", "Latitude", "Longitude"]
-    stations = [i for i in f.keys()]
-    filtered_attribute_names = [label for label in include_labels if label in attribute_names]
-    df = pd.DataFrame({label: attributes[stations.index(label)] for label in stations})
-    #df.index(include_labels)
-    #df = pd.DataFrame(attributes)
-    df.insert(0,"Time", time); df.insert(0,"mag", mag) 
+    # attribute_names, attributes, time, mag = get_metadata(f, stationname[0]) #ASSIGN ATTRIBUTES TO EACH SPECTRORGRAM!
+    # #print(attribute_names, attributes)
+    # include_labels = ["Distance from Epicentre", "Elevation (sea level)", "Latitude", "Longitude"]
+    # stations = [i for i in f.keys()]
+    # filtered_attribute_names = [label for label in include_labels if label in attribute_names]
+    # df = pd.DataFrame({label: attributes[stations.index(label)] for label in stations})
+    # #df.index(include_labels)
+    # #df = pd.DataFrame(attributes)
+    # df.insert(0,"Time", time); df.insert(0,"mag", mag) 
     
-    df.insert(0, "Info", include_labels)
-    #df = pd.DataFrame(data)#.set_index("station")
-    df.to_csv(f"/nobackup/vsbh19/Earthquake_Meta/attributes_of_{files[filenum][:-3]}.csv")
-    #print([i for i in f.attrs.items()])
-    #X = f.get(station)[:]
-    #sys.exit() 
+    # df.insert(0, "Info", include_labels)
+    # #df = pd.DataFrame(data)#.set_index("station")
+    # df.to_csv(f"/nobackup/vsbh19/Earthquake_Meta/attributes_of_{files[filenum][:-3]}.csv")
+    # #print([i for i in f.attrs.items()])
+    # #X = f.get(station)[:]
+    # #sys.exit() 
     gap = (end_day-start_day)*samples_per_day
     for i,u in enumerate(stationname): 
         #print(i,u)
@@ -247,15 +269,17 @@ with h5py.File(directory + files[filenum]) as f:
      
 master_file = np.reshape(master_file, (len(master_file[0,:]),len(master_file)))
 #SWITCH MASTER FILE ROUND TO AVOID PROPOGATION OF ERROR
-chunk_num  = int(100*len(master_file)/gap)
-X_train, X_test = split(master_file, chunk_num)  # 400*length statiion wanted chunks wanted
+chunk_num  = int(10*len(master_file)/gap)
+assert len(stationname) >= 1, "THERE MUST BE AT LEAST ONE STATION"
+
+X_train, X_test = split_multiple_stations(master_file, 0.2, stationname, chunk_num)#; sys.exit()  # 400*length statiion wanted chunks wanted
 #sys.exit("Done")
 del master_file  # save some memeory
 #sys.exit()
 #X_train = np.reshae(X_train)
 # 20 seconds duration 19 seconds overlap
 X_train = windows(X_train, duration, overlap)
-X_test = windows(X_test, duration, overlap)
+X_test = windows(X_test, duration, overlap)#; sys.exit()
 #sys.exit("Done")
 #number_samples_window = np.asarray(X_val).shape[1]
 #print("Number samples", len(X_train))
@@ -275,6 +299,7 @@ lap =639*(duration/40)#from the snover study of 90s overlap
 #seg = 1187 #WHAT WAS UNTIL 19 01
 beta = np.pi*1.8 #beta = pi*alpha (used in Snover (2020))
 def spectrogram_gen(X, seg, lap, beta):
+    #global X
     if len(stationname) == 1:
         frequencies, times, Sxx = spectrogram(X[0][1], 
                                   100, nperseg=seg, 
@@ -365,7 +390,7 @@ with h5py.File(f"{directory}Spectrograms_" + files[filenum][:-3] + "_" + str(sta
         dset.attrs["Station"] = "ALL"
     #-------------------for one station----------------------------
     else: 
-        spectrograms.create_dataset("Stations", data = stations.index(station))
+        spectrograms.create_dataset("Stations", data = [1])
         dset.attrs["Station"] = station
     spectrograms["Frequency scale"] = np.array(frequencies_train)
     spectrograms["Frequency scale"].make_scale("Frequency scale")
@@ -399,7 +424,7 @@ with h5py.File(f"{directory}TESTING_Spectrograms_{files[filenum][:-3]}_{station}
         dset.attrs["Station"] = "ALL"
     #-------------------for one station----------------------------
     else: 
-        spectrograms.create_dataset("Stations", data = stations.index(station))
+        spectrograms.create_dataset("Stations", data = [1])
         dset.attrs["Station"] = station
     spectrograms["Frequency scale"] = np.array(frequencies_test)
     spectrograms["Frequency scale"].make_scale("Frequency scale")

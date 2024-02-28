@@ -36,7 +36,7 @@ date_name = "Nov23"
 #dirname = os.path.dirname("/home/vsbh19/initial_python_files/")
 nobackupname = os.path.dirname("/nobackup/vsbh19/snovermodels/")
 
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000773200.h5", "ev0000447288.h5", "Sinosoid.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
 
 try:
     filenum = int(sys.argv[1]) # Which file we want to read.
@@ -107,7 +107,7 @@ batch_size=512                     # number of samples in each batch
 tol = 0.001                        # tolerance threshold to stop training
 loss = 0                           # initialize loss
 index = 0                          # initialize index to start 
-maxiter = 10000          # number of updates to rub before halting. (~12 epochs)
+maxiter = 40000          # number of updates to rub before halting. (~12 epochs)
 update_interval = 315             # Soft assignment distribution and target distributions updated evey 315 batches. 
                                    #(~12 updates/epoch)
 

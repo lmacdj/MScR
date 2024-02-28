@@ -21,7 +21,7 @@ import sys
 import os
 import pandas as pd
 from retrieve_earthquake_prelim import heythem
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "Sinosoid.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5","ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
 date_name = "Jan24"
 try:
     filenum = int(sys.argv[1]) # Which file we want to read.
@@ -33,12 +33,11 @@ try:
     end_day = float(sys.argv[7])
     norm = sys.argv[8]
 except:
-    filenum = 0
+    filenum = 5
     component = [2]
     stationname = "all"
-    duration = 40
-    n_clusters = 5 
-    start_day =25
+    duration = 240
+    start_day =0
     end_day = 31.5
     norm = "l2"
     n_clusters = 6
@@ -113,10 +112,10 @@ def print_all_clusters(data, labels, num_clusters, positions, stations):
         2D tensor with shape: `(n_samples, n_clusters)`.
     """
     fig1=plt.figure() 
-    global time_idxes, station_idxes
+    global time_idxes, station_idxes, fre
     #time_idxes = []; station_idxes = []
-    fre = ["0", "4", "8", "12","16", "20"]
-    fre_pos = np.arange(0,24,4)
+    
+    
     global clustered_data
     clustered_data = pd.DataFrame(columns=["Label", "Spectrogram", "Time", "Station"])
     amounts = []
@@ -164,11 +163,12 @@ def print_all_clusters(data, labels, num_clusters, positions, stations):
                 ax.set_ylim([0,20])
                 ax.set_xlabel('Time(s)')
                 ax.set_yticks(fre_pos, fre)
+                ax.set_xticks(secs_pos, secs)
                 ax.set_aspect(10)
                 #ax.invert_yaxis()
                 #plt.colorbar()
              
-        
+            plt.savefig(f"/home/vsbh19/plots/Clusters/{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_Cluster{cluster_num}.png")
         plt.suptitle('Label {}'.format(cluster_num), ha='left', va='center', fontsize=28)    
         plt.tight_layout()
     #time_idxes = np.asarray(time_idxes, dtype = float)
@@ -177,6 +177,7 @@ def print_all_clusters(data, labels, num_clusters, positions, stations):
     
     ###-------PLOT LABELS IN TIME AND SPACE-----------------------
     plt.show()
+    
     plt.figure(2)
     colours = ["red", "blue", "green", "purple",  "orange", "black"]#; sys.exit()
     
@@ -270,6 +271,7 @@ def print_all_clusters(data, labels, num_clusters, positions, stations):
             plt.plot(steps, values_y, color = colours[i], label = f"Label {i}")
         plt.legend()
         plt.title(f"Propogation for station {u}")
+        plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/{files[filenum][:-3]}_{u}_{component}_{duration}_{norm}_Cluster{cluster_num}.png")
         #sys.exit()
     
     
@@ -284,21 +286,26 @@ def print_all_clusters(data, labels, num_clusters, positions, stations):
         
 #-----------------------------------------------------------------------------------------------------------------------------------------
     #ti_scale = f.get("Time scale") [:]
+
 secs = ['0', '8', '16', '24', '32']
-fre = ["0", "4", "8", "12","16", "20"]
+se_basic = np.arange(0,40,8)
 fre_pos = np.arange(0,24,4)
-secs_pos = np.arange(0,40,8)
+secs = [str(i*(duration/40)) for i in se_basic]
+fre = [str((i*(40/duration)))[0:2] for i in fre_pos]
 
-
-
+#fre = ["0", "4", "8", "12","16", "20"]
+#fre_pos = np.arange(0,24,4)
+#fre = ["0", "4", "8", "12","16", "20"]
+#fre_pos = np.arange(0,24,4)
+secs_pos = np.arange(0,50,10)
 
 from matplotlib.gridspec import GridSpec
 import matplotlib.colors as colors
 
 #----------------------------------cluster size labels and clusters-----------------------
-events = heythem("JP",["JMM"], startt="2014-07-04T19:22:00.0",  endt="2014-07-11T19:22:00.0", magnitude = 5.0)
+events = heythem("IU",["MAJO"], startt="2014-07-04T19:22:00.0",  endt="2014-07-11T19:22:00.0", magnitude = 5.0, verbose = 1)
 print_cluster_size(labels_train)
-print_all_clusters(X_train, labels_train, n_clusters, X_train_pos, X_train_station); sys.exit()
+print_all_clusters(X_train, labels_train, n_clusters, X_train_pos, X_train_station)#; sys.exit()
 #-----------------------------------------------------------------------------------------
 for u,idx in enumerate(np.random.randint(0,len(X_val),25)):
     fig = plt.figure(figsize=(8,17))
@@ -344,7 +351,7 @@ for u,idx in enumerate(np.random.randint(0,len(X_val),25)):
     ax2.set_title('Reconstructed Spectrogram')
              
     fig.tight_layout()
-    fig.savefig(f'/home/vsbh19/plots/20 second snippets/original_embedded_reconst_{files[filenum][:-3]}_{stationname}_{duration}_C{n_clusters}_{idx}.png')
+    fig.savefig(f'/home/vsbh19/plots/20 second snippets/DEC_original_embedded_reconst_{files[filenum][:-3]}_{stationname}_{duration}_C{n_clusters}_{idx}.png')
     plt.show()
 
 sys.exit(1) #Completion stamp to shell 

@@ -16,7 +16,7 @@ Created on Tue Nov 15 18:31:46 2022
 # scheduled data download, formatting and forecasting
 from obspy import UTCDateTime
 from obspy.clients.fdsn import Client
-from obspy.clients.fdsn.header import FDSNNoDataException
+from obspy.clients.fdsn.header import FDSNNoDataException, FDSNBadRequestException
 import sys
 import pandas as pd
 #from obspy.clients.iris import Client
@@ -39,7 +39,9 @@ def heythem(network, station, **kwargs):
     endt=UTCDateTime("2022-12-05T23:59:59.0")
     magnitude = 6.0
     maxradius = 20
+    verbose = 2
     stations = [station] if type(station) != list else station #alllows to iterate through one station
+    global inventory
     event_ids_set = set() #make sure we dont record the event
     lats = []; longs = []
     for u in stations: 
@@ -51,7 +53,16 @@ def heythem(network, station, **kwargs):
             lats.append(lat)
             longs.append(lon)
         except FDSNNoDataException:
+            inventory = client.get_stations(network=network, starttime = startt , endtime= endt)
             print(f"MATE, STATION {u} DOES NOT EXIST AND WILL BE OMITTED HENCEFORTH")
+            print("Available stations", inventory)
+        except FDSNBadRequestException:
+            
+            inventory = client.get_stations(starttime = startt, endtime = endt, latitude=36.8817, longitude = 139.4534, maxradius=50, level = "network")
+            print("Please make sure the network youre using is correct\n", inventory)
+        
+            sys.exit()
+            
     
     locations = pd.DataFrame(data = {"Long": longs, "Lat": lats})
     
@@ -63,7 +74,9 @@ def heythem(network, station, **kwargs):
         magnitude = kwargs["magnitude"]
     if "maxradius" in kwargs: 
         maxradius = kwargs["maxradius"]
-        
+    if "filename" in kwargs: 
+        filename = kwargs["filename"]
+    verbose = kwargs["verbose"] if verbose in kwargs else 1    
     merged_catalog = None
     for i in range(len(stations)):
         try:
@@ -94,16 +107,25 @@ def heythem(network, station, **kwargs):
                 merged_catalog += catalog
         
     if merged_catalog is not None: 
-        fil=open("events_All.txt",'w')
+        try:
+            fil=open(f"events_{filename}_mag{magnitude}.txt",'w')
+        except: 
+            starttt = str(startt); endtt = str(endt) #Utc datetime is not subscriptable
+            fil = open(f"eventt_{starttt[:7]}_to_{endtt[:7]}_mag{magnitude}","w")
         for event in merged_catalog:
             evid=str(event.resource_id).split('=')[1]
             evti=str(event).split('\n')[0].split('\t')[1]
             if evid not in event_ids_set:#make sure that we haven't alredy recorded the evebt
                 evo=evid+' | '+evti+ ' | '+ str(event.origins[0].depth)+'\n'
-                print (event)
-                print(evo)
-                print('-----------------------------------------------------------------------------------------------------\n\n')
-                fil.write(evo)
+                if verbose == 1: 
+                    print(event)
+                    print(evo)
+                    print('-----------------------------------------------------------------------------------------------------\n\n')
+                if verbose == 2:
+                    print(event)
+                    
+			         
+                    fil.write(evo)
                 event_ids_set.add(evid)
         fil.close()
         return locations, len(event_ids_set)
@@ -112,4 +134,4 @@ def heythem(network, station, **kwargs):
         return 0, 0 
         
 #
-#events = heythem("JP",["JMM"], startt="2019-05-22T00:00:01.0",  endt="2022-12-05T23:59:59.0", magnitude = 5.0)
+#events = heythem("IU",["MAJO"], startt="2019-05-22T00:00:01.0",  endt="2022-12-05T23:59:59.0", magnitude = 5.0)

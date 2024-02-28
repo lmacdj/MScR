@@ -40,7 +40,7 @@ import matplotlib.pyplot as plt #issues with matplotlib on srun?
 import time
 from sklearn.model_selection import train_test_split
 
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000773200.h5", "ev0000447288.h5", "Sinosoid.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
 
 try: 
     filenum = int(sys.argv[1]) # Which file we want to read.
@@ -177,7 +177,7 @@ autoencoder.summary()
 
 ##########################################################HYPERPARAMETERS ##################################################
 LR = 0.0001 
-n_epochs = 100
+n_epochs = 200
 batch_sz = 512
 ##############################################################################################################################
 
