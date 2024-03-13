@@ -38,7 +38,7 @@ def heythem(network, station, **kwargs):
     startt=UTCDateTime("2012-05-22T00:00:01.0")
     endt=UTCDateTime("2022-12-05T23:59:59.0")
     magnitude = 6.0
-    maxradius = 20
+    maxradius = 15 #japan is approximately 15 degrees
     verbose = 2
     stations = [station] if type(station) != list else station #alllows to iterate through one station
     global inventory
@@ -58,7 +58,7 @@ def heythem(network, station, **kwargs):
             print("Available stations", inventory)
         except FDSNBadRequestException:
             
-            inventory = client.get_stations(starttime = startt, endtime = endt, latitude=36.8817, longitude = 139.4534, maxradius=50, level = "network")
+            inventory = client.get_stations(starttime = startt, endtime = endt, latitude=36.8817, longitude = 139.4534, maxradius=maxradius, level = "network")
             print("Please make sure the network youre using is correct\n", inventory)
         
             sys.exit()
@@ -76,7 +76,9 @@ def heythem(network, station, **kwargs):
         maxradius = kwargs["maxradius"]
     if "filename" in kwargs: 
         filename = kwargs["filename"]
-    verbose = kwargs["verbose"] if verbose in kwargs else 1    
+    if "maxradius" in kwargs:
+        maxradius = kwargs["maxradius"]
+    verbose = kwargs["verbose"] if verbose in kwargs else 2    
     merged_catalog = None
     for i in range(len(stations)):
         try:
@@ -111,27 +113,29 @@ def heythem(network, station, **kwargs):
             fil=open(f"events_{filename}_mag{magnitude}.txt",'w')
         except: 
             starttt = str(startt); endtt = str(endt) #Utc datetime is not subscriptable
-            fil = open(f"eventt_{starttt[:7]}_to_{endtt[:7]}_mag{magnitude}","w")
+            fil = open(f"eventt_{starttt[:7]}_to_{endtt[:7]}_mag{magnitude}.txt","w")
         for event in merged_catalog:
             evid=str(event.resource_id).split('=')[1]
-            evti=str(event).split('\n')[0].split('\t')[1]
+            evti=str(event).split('\n')[0].split('\t')[1] #time?
             if evid not in event_ids_set:#make sure that we haven't alredy recorded the evebt
                 evo=evid+' | '+evti+ ' | '+ str(event.origins[0].depth)+'\n'
                 if verbose == 1: 
                     print(event)
                     print(evo)
                     print('-----------------------------------------------------------------------------------------------------\n\n')
-                if verbose == 2:
-                    print(event)
+                
                     
 			         
-                    fil.write(evo)
+                fil.write(evo)
                 event_ids_set.add(evid)
         fil.close()
+        
+        if verbose == 2:
+            print("Returned", len(event_ids_set), "events from\n\n", str(startt)[:-8], "\n------|-------\n", str(endt)[:-8])
         return locations, len(event_ids_set)
     else: 
-        print("GATHERING OF EVENTS HAS FAILED, YOU NEED TO HAVE A LONG HARD LOOK AT YOURSELF")
-        return 0, 0 
+        sys.exit("GATHERING OF EVENTS HAS FAILED, YOU NEED TO HAVE A LONG HARD LOOK AT YOURSELF")
+        
         
 #
 #events = heythem("IU",["MAJO"], startt="2019-05-22T00:00:01.0",  endt="2022-12-05T23:59:59.0", magnitude = 5.0)

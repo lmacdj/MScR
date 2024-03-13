@@ -46,11 +46,11 @@ try:
     n_clusters = int(sys.argv[5])
     norm = sys.argv[6]
 except:
-    filenum = 0
+    filenum = 7
     component = [2]
-    stationname = "all"
-    duration = 40
-    n_clusters = 6
+    stationname = "Sinosoid"
+    duration = 240
+    n_clusters = 2
     norm = "max"
 #autoencoder = load_model(nobackupname + f"Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{stationname}.keras")
 #encoder = load_model(nobackupname + f"Saved_Encoder1_Nov23_{files[filenum][:-3]}_{stationname}.keras")
@@ -74,9 +74,16 @@ with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum
     X_train = f.get("X_train")[:]
     #print(X_train[0,:,:,0]); sys.exit()
     X_val = f.get("X_val")[:]
-    Labels = f.get("Labels_Train")[:]
-    labels_last = f.get("Labels_Last_Train")[:]
-    X_test = f.get("X_test")[:]
+    Labels_Train = f.get("Labels_Train")[:]
+    labels_last_train = f.get("Labels_Last_Train")[:]
+    try:
+        X_test = f.get("X_test")[:]
+        Labels_Test = f.get("Labels_Test")[:]
+        Labels_Last_Test = f.get("Labels_Last_Test")[:]
+        testing = 1 
+    except: 
+        print("NO TESTING DATA AVAILABLE")
+        testing = 0
     
 #val_reconst = autoencoder.predict(X_val, verbose = 1) #reconstruction of validation data
 #val_reconst = autoencoder.predict(X_val, verbose = 1)#; sys.exit()
@@ -107,7 +114,7 @@ batch_size=512                     # number of samples in each batch
 tol = 0.001                        # tolerance threshold to stop training
 loss = 0                           # initialize loss
 index = 0                          # initialize index to start 
-maxiter = 40000          # number of updates to rub before halting. (~12 epochs)
+maxiter = 40000   # number of updates to rub before halting. (~12 epochs)
 update_interval = 315             # Soft assignment distribution and target distributions updated evey 315 batches. 
                                    #(~12 updates/epoch)
 
@@ -129,7 +136,7 @@ def target_distribution(q):
     return (weight.T / weight.sum(1)).T
 
 loss_list = np.zeros([maxiter,3]) 
-def fit(X, labels_last, loss, index, index_array):
+def fit(X, labels, labels_last, loss, index, index_array):
     global delta_labels, p, q
     delta_labels = []
     for ite in range(int(maxiter)):
@@ -168,9 +175,11 @@ def fit(X, labels_last, loss, index, index_array):
     plt.plot(len(loss_list), )
     return labels, X_reconst
 
-labels_Xtrain, train_reconst = fit(X_train, labels_last, loss, index, np.arange(X_train.shape[0]))#; sys.exit()
+labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, loss, index, np.arange(X_train.shape[0]))#; sys.exit()
+
 #labels_Xval, val_reconst = fit(X_val, labels_last, loss, index, np.arange(X_val.shape[0]))
-#labels_Xtest, test_reconst = fit(X_test, labels_last, loss, index, np.arange(X_test.shape[0]))
+#if testing == 1:
+#    labels_Xtest, test_reconst = fit(X_test, Labels_Last_Test, loss, index, np.arange(X_test.shape[0]))
 
 with h5py.File(nobackupname + f'/DEC_Training_LatentSpaceData_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5', 'w') as nf:
     #nf.create_dataset('Train_EncodedData', data=enc_train, dtype=enc_train.dtype)

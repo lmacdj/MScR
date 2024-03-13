@@ -37,7 +37,7 @@ with h5py.File(directory + f"RawData_{files[filenum][:-3]}_{stationname}_{compon
 
 X = normalize(X,norm = norm) if norm != None else X
 if peridogram == True:
-    f, Pxx_den = signal.periodogram(X, 100)
+    f, Pxx_den = signal.periodogram(X, fs = 100)
     plt.figure(1)
     plt.semilogy(f, np.reshape(Pxx_den, (len(f),1)))
     plt.ylim([1e-15, 1e1])

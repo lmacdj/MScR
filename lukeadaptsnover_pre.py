@@ -18,7 +18,7 @@ from scipy.signal import spectrogram
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize 
 import random
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 #from scipy.ndimage import gaussian_filter
 import time
 import pandas as pd
@@ -356,6 +356,7 @@ with h5py.File(f"{directory}Spectrograms_" + files[filenum][:-3] + "_" + str(sta
     # times *= 10 # converts times to seconds
     #h5py._errors.unsilence_errors() #if errornous h5 file
     indices = np.array(indices_train)
+    plt.plot(indices); sys.exit()
     dset = spectrograms.create_dataset("Data", data=tobe_train)
     locset = spectrograms.create_dataset("Indices", data = indices)
     #-------------------for lots of stations------------------------------

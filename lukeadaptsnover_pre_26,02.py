@@ -26,7 +26,7 @@ from scipy.signal import spectrogram
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize 
 import random
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 #from scipy.ndimage import gaussian_filter
 import time
 import pandas as pd
@@ -59,7 +59,7 @@ except  IndexError:
     filenum = 5
     component = [2]
     station=  "all"
-    start_day = 29
+    start_day = 20
     end_day = 31.25
     overlap = 80
     duration =  240
@@ -123,7 +123,7 @@ def split(X, chunk, **args):
      
 
     return x_ret
-#----------------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------------------------------------
 def split_multiple_stations(X, test_split, stationname, chunks):
     
     totalchunks = int(chunks*len(stationname))
@@ -136,7 +136,7 @@ def split_multiple_stations(X, test_split, stationname, chunks):
     X_train, X_test = train_test_split(
         big_fat_file, test_size=test_split, shuffle=True, random_state=812) #SPLITS THE TRAINING AND TESTING CHUNKS UP 
     return X_train, X_test
-#-------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------------------------
 def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS THESE INTO SMALLER WINDOWS
     #print("Good")
     X_return = []
@@ -188,7 +188,6 @@ def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS TH
                 addition = duration*100
                 add = np.reshape (add, (addition,)) #reshape it back to original
                 tobe.append(add) #time stamp at the beginnign of each file
-                
                 #print(tobe)#; sys.exit()
                 X_return.append(tobe)
                 #plt.plot(u[i*100: (i+duration)*100]); sys.exit()
@@ -199,51 +198,64 @@ def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS TH
     #X_return = np.asarray(X_return) 
     return X_return  # all chunks lumped togehter
 
-#------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------
 def get_metadata(file, station_name):
+    
     try:
         stations = file.keys()
     #global attributes
         attributes = np.empty((len(stations), 4))
         for i, x in enumerate(stations):
-            attributes[i, :] = [float(file[x].attrs[u]) for u in [i for i in file[x].attrs.keys()]]
+            try:
+                attributes[i, :] = [float(file[x].attrs[u]) for u in [i for i in file[x].attrs.keys()]]
+            except: 
+                print("Attributes cannot be satisfied")
         #global time 
-        mag,time = [i[1] for i in f.attrs.items() if i[0] in ["time", "mag"]]
-        attribute_names = [r for r in f[station_name].attrs.keys()]
+        try: 
+            mag,time = [i[1] for i in f.attrs.items() if i[0] in ["time", "mag"]]
+        except: 
+            print("Time and mag not available big rip")
+            print([i for i in f.attrs.items()])
+        
+        try:
+            attribute_names = [r for r in f[station_name].attrs.keys()]
+        except: 
+            print("Atrributes cannot be received")
         attribute_names.append("Epicentral time")
-    
+        print(file[x].attrs.keys())
     #attributes[:,0] = attribute_names
         return attribute_names, attributes, time, mag
     except ValueError: 
+        print(file[x].attrs.keys())
         print("File Metadata not consistent"); return None, None, None, None
 
-#-----------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------------------------------------
 if station == "all": 
     with h5py.File(directory + files[filenum]) as f:
         stationname = list(f.keys())
 else:
     stationname = [station]
-#--------------------------------------------------------------------------------------------------------------------  
+#--------------------------------------------------------------------------------------------------------------------------------------------------  
 diff_amount = int(end_day*samples_per_day) - int(start_day*samples_per_day)
 master_file = np.zeros((len(component),len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))#; sys.exit() #all earthquake data in here!
 with h5py.File(directory + files[filenum]) as f:
     print(f.keys())
-    # attribute_names, attributes, time, mag = get_metadata(f, stationname[0]) #ASSIGN ATTRIBUTES TO EACH SPECTRORGRAM!
-    # #print(attribute_names, attributes)
-    # include_labels = ["Distance from Epicentre", "Elevation (sea level)", "Latitude", "Longitude"]
-    # stations = [i for i in f.keys()]
-    # filtered_attribute_names = [label for label in include_labels if label in attribute_names]
-    # df = pd.DataFrame({label: attributes[stations.index(label)] for label in stations})
-    # #df.index(include_labels)
-    # #df = pd.DataFrame(attributes)
-    # df.insert(0,"Time", time); df.insert(0,"mag", mag) 
+    attribute_names, attributes, time, mag = get_metadata(f, stationname[0]) #ASSIGN ATTRIBUTES TO EACH SPECTRORGRAM!
+    #print(attribute_names, attributes)
+    include_labels = ["Distance from Epicentre", "Elevation (sea level)", "Latitude", "Longitude"]
+    stations = [i for i in f.keys()]
+    filtered_attribute_names = [label for label in include_labels if label in attribute_names]
+    df = pd.DataFrame({label: attributes[stations.index(label)] for label in stations})
+    #df.index(include_labels)
+    #df = pd.DataFrame(attributes)
+    df.insert(0,"Time", time); df.insert(0,"mag", mag) 
     
-    # df.insert(0, "Info", include_labels)
-    # #df = pd.DataFrame(data)#.set_index("station")
-    # df.to_csv(f"/nobackup/vsbh19/Earthquake_Meta/attributes_of_{files[filenum][:-3]}.csv")
-    # #print([i for i in f.attrs.items()])
-    # #X = f.get(station)[:]
-    # #sys.exit() 
+    df.insert(0, "Info", include_labels)
+    #df = pd.DataFrame(data)#.set_index("station")
+    df.to_csv(f"/nobackup/vsbh19/Earthquake_Meta/attributes_of_{files[filenum][:-3]}.csv")
+    #print([i for i in f.attrs.items()])
+    #X = f.get(station)[:]
+    #sys.exit() 
     gap = (end_day-start_day)*samples_per_day
     for i,u in enumerate(stationname): 
         #print(i,u)
@@ -375,12 +387,14 @@ def spectrogram_gen(X, seg, lap, beta):
 tobe_train, frequencies_train, times_train, indices_train, stations_indices_train, second = spectrogram_gen(X_train, 
                                                                                                          seg, lap, beta)
 
+plt.plot(np.sort(indices_train)); sys.exit()
 #------------------------------UPLOADING TRAINING AND VALIDATION DATA-----------------------------------
 with h5py.File(f"{directory}Spectrograms_" + files[filenum][:-3] + "_" + str(station) + "_" + str(component)+ "_" + str(duration) + "_" + str(norm) + "_training.h5", "w") as spectrograms:
     
-    # times *= 10 # converts times to seconds
+    
     #h5py._errors.unsilence_errors() #if errornous h5 file
     indices = np.array(indices_train)
+    
     dset = spectrograms.create_dataset("Data", data=tobe_train)
     locset = spectrograms.create_dataset("Indices", data = indices)
     #-------------------for lots of stations------------------------------
