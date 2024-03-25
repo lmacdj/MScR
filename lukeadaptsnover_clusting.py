@@ -15,6 +15,8 @@ import h5py
 import numpy as np
 import random
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from yellowbrick.cluster import SilhouetteVisualizer
 import matplotlib.pyplot as plt
 import os
 import time
@@ -25,21 +27,22 @@ import sys
 #from keras import optimizers
 #from lukeadaptsnover_clusteringclass import ClusteringLayer
 directory = os.path.join("/nobackup/vsbh19")
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5"]
 
 try:
     filenum = int(sys.argv[1]) # Which file we want to read.
     component = int(sys.argv[3]) #0,1,2 = X,Y,Z
     stationname = sys.argv[2] #station we want to read
 except:
-    filenum = 0
+    filenum = 5
     component = [2]
     stationname = "all"
-    duration = 40
-
+    duration = 240
+    n_clusters = 6
+    norm = "l2"
 #with h5py.File(directory + f"/snovermodels/Training_LatentSpaceData_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5" , "r") as f:
 #    enc_train = f.get("Train_EncodedData")[:]
-with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{stationname}_{component}_{duration}_C{n_clusters}.h5" , "r") as f:
+with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5" , "r") as f:
     print(f.keys())
     X_train = f.get("X_train")[:]
     X_val = f.get("X_val")[:]
@@ -101,26 +104,41 @@ plt.savefig(f'{homedir}/plots/KMeans_Inertia_vs_NumClusters_dec23.png')
 plt.show()
 
 tic = time.time()
-inertia_gauss = []
+inertia_gauss = []; sil_gau = []
+fig, ax = plt.subplots(3, 2, figsize=(15,8))
 ##################################TRY AND FIT TO GUASSIAN DISTRIBUTION###################
-for i in np.arange(2,20,1):
+for i in np.arange(2,8,1):
     kmeans_model_gauss = KMeans(n_clusters=i, n_init=10,# precompute_distances=True, 
                                 random_state=812).fit(gauss.T)
     inertia_gauss.append(kmeans_model_gauss.inertia_)
-
+    q, mod = divmod(i, 2)
+    
+    vis_gau = SilhouetteVisualizer(kmeans_model_gauss,  ax=ax[q-1][mod])
+    vis_gau.fit(gauss.T)
+    sci_sil_gau = silhouette_score(gauss.T, kmeans_model_gauss.labels_)
+    sil_gau.append(sci_sil_gau)
+figl  = plt.figure(56)
+plt.plot(range(0,len(sil_gau)), sil_gau)
 toc = time.time()
 print('Reference Gaussian Distribution KMeans Computation Time : {0:4.1f} minutes'.format((toc-tic)/60)) 
 
 # Repeat this process with the data taken from the uniform reference distribtion
 ################################TRY AND FIT TO UNIFORM DISTRIBUTION####################
 tic = time.time()
-inertia_uniform =[]
-for i in np.arange(2, 20, 1):
+inertia_uniform =[]; sil_uni = []
+fig, ax = plt.subplots(3, 2, figsize=(15,8))
+for i in np.arange(2, 8, 1):
     kmeans_model_uniform = KMeans(n_clusters=i, n_init=10, #precompute_distances=True, 
                                   random_state=812).fit(uniform.T)
     inertia_uniform.append(kmeans_model_uniform.inertia_)
-
+    q, mod = divmod(i, 2)
+    vis_uni = SilhouetteVisualizer(kmeans_model_uniform,  ax=ax[q-1][mod])
+    vis_uni.fit(uniform.T)
+    sci_sil_uni = silhouette_score(uniform.T, kmeans_model_uniform.labels_)
+    sil_uni.append(sci_sil_uni)
 toc = time.time()
+figl  = plt.figure(66)
+plt.plot(range(2,len(sil_uni)+2), sil_uni)
 print('Reference Unfiform Distribution KMeans Computation Time : {0:4.1f} minutes'.format((toc-tic)/60))  
 
 ####################CALCULATE DIFFERENCE IN GAP STATISTIC BETWEEN PLOTS AND REFERENCE DISTRIBUTIONS###################

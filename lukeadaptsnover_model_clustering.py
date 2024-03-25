@@ -35,6 +35,7 @@ from sklearn.cluster import KMeans
 import random
 import h5py
 import os
+import pandas as pd; import math
 
 import matplotlib.pyplot as plt #issues with matplotlib on srun?
 import time
@@ -50,19 +51,33 @@ try:
     n_clusters = int(sys.argv[5])
     norm = sys.argv[6]
     n_epochs = int(sys.argv[7])
+    switch = sys.argv[8]
+    LR = float(sys.argv[9])
+    batch_sz = int(sys.argv[10])
     print("SUCCESSFUL DECLARATION OF VARIABLES")
 except: 
-    filenum = 7
+    filenum = 0
     component = [2]
-    station = "Sinosoid"
+    station = "all"
     duration = 240
-    n_clusters = 5
+    n_clusters = 6
     norm = "max"
-    n_epochs = 200
+    n_epochs = 1
+    LR = 0.0001 
+    batch_sz = 512
+    switch = "True"
     print("RUNNING BACKUP VARIABLES")
 train_dataname = f"/nobackup/vsbh19/h5_files/Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_training.h5"
 test_dataname = f"/nobackup/vsbh19/h5_files/TESTING_Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}.h5"
 # with h5py.File(train_dataname, "r") as f:
+#SERIOUSLY IMPORTANT VARIABLEs
+
+#-----------------------------------------------------------------------------------------------------------
+path_add = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}" #for when there are NO clusters assigned
+path_add_cluster = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}"
+#=------------------------------------------------------------------------------------------------------------
+
+#END OF SERIOUSLY IMPORTANT VARIABLES
 random.seed(812)
 with h5py.File(train_dataname, "r") as f:
     datagen = tf.keras.preprocessing.image.ImageDataGenerator(
@@ -142,9 +157,16 @@ with h5py.File(train_dataname, "r") as f:
     X_val_pos =[indices[r] for r in X_val_i] #appends the location in time 
     X_train = np.reshape([X[r] for r in X_train_i], (len(X_train_i),o,p,1)) #finds the equivalent index for X_train
     X_val = np.reshape([X[r] for r in X_val_i], (len(X_val_i),o,p,1))
+    
+    if switch == "True": 
+        
+        random_pos_flip = np.random.randint(0, int(len(X_train)), int(math.ceil(len(X_train)/2)))
+        for i in random_pos_flip:
+            X_train[i,:,:,0] = np.flip(X_train[i,:,:,0], 0) #flip along the 0th axis to flip spectorgrams
+        print("SPECTROGRAMS SWITCHED")
     print("Training samples ", len(X_train), "\nValidation Samples ", len(X_val))
-    #X_train = X
-    #X_val = X_train
+    
+    
     # plt.pcolormesh(X_train[50000,:,:,0])
     # print(X_train[5000,:,:,0]); sys.exit()
     #sys.exit()
@@ -189,17 +211,15 @@ decoded = Conv2DTranspose(1, (5,5), strides = strides, activation = "linear", ke
 ########################################################VISUALISING THE MODELS#######################################
 autoencoder = Model(inputs = img_input, outputs = decoded, name = "autoencoder")
 encoder = Model(inputs = img_input, outputs = encoded, name = "encoder")
-
+decoder = Model(inputs = encoded, outputs = decoded, name= "decoder")
 autoencoder.summary() 
 #sys.exit()
 
-##########################################################HYPERPARAMETERS ##################################################
-LR = 0.0001 
+##########################################################HYPERPARAMETERS THAT CAN BE ADJUSTED ##################################################
 
-batch_sz = 512
 ##############################################################################################################################
 
-logger_fname = f'HistoryLog_LearningCurve_{files[filenum][:-3]}_{station}_{component}_{duration}.csv'
+logger_fname = f'HistoryLog_LearningCurve_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.csv'
 csv_logger = CSVLogger(logger_fname)
 
 # Early stopping halts training after validation loss stops decreasing for 10 consectutive epochs
@@ -214,6 +234,9 @@ encoder.compile(loss=loss,optimizer=optim)
 autoencoder.compile(loss=loss,
                     optimizer=optim,
                     metrics=[tf.keras.metrics.MeanAbsoluteError()])   
+decoder.compile(loss = loss, 
+                optimizer = optim, 
+                metrics = [tf.keras.metrics.MeanAbsoluteError()])
 
 ################################################################THE RUNNING OF THE CODE############################################################
 t1 = time.time()
@@ -221,7 +244,13 @@ autoencoder.fit(X_train, X_train[:,:136,:40,0], batch_size=batch_sz, epochs=n_ep
                 validation_data=(X_val, X_val[:,:136,:40,0]), callbacks=[csv_logger, early_stop])
 ##########################################################DISPLAY TRAINIG LOSSS PER EPOCH #######################################################
 print(f"Total elapsed time = {time.time() - t1}")
-hist = np.genfromtxt(logger_fname, delimiter=',', skip_header=1, names=['epoch', 'train_mse_loss', 'train_mae_loss', 'val_mse_loss', 'val_mae_loss'])
+try: 
+    hist = np.genfromtxt(logger_fname, delimiter=',', skip_header=1, names=['epoch', 'train_mse_loss', 'train_mae_loss', 'val_mse_loss', 'val_mae_loss'])
+    h = True
+except: 
+    print("Sorry can't generate histogram")
+    h = False
+    
 #---------------------------------------------------------------DEFINE DEC MODEL-------------------------------
 clustering_layer = ClusteringLayer(n_clusters, name='clustering')(encoder.output)       #Feed embedded samples to 
 model = Model(inputs=autoencoder.input, outputs=[clustering_layer, autoencoder.output], name = "DEC") #Input: Spectrograms, 
@@ -233,7 +262,13 @@ enc_train = encoder.predict(X_train, verbose = 2)
 kmeans = KMeans(n_clusters=n_clusters, n_init = 100) #n_init = number of initizialisations to perform
 labels_train = kmeans.fit_predict(enc_train)
 labels_last_train = np.copy(labels_train)
-
+#print(kmeans.cluster_centers_)
+ap = {}
+for i in range(len(kmeans.cluster_centers_)):
+    ap[i] = kmeans.cluster_centers_[i]
+clusters = pd.DataFrame(ap)
+clusters.to_csv(f"/nobackup/vsbh19/snovermodels/CLUSTER_CENTRES_{path_add_cluster}.csv")
+print("CLUSTER CENTRES HAVE BEEN EXPORTED")
 model.get_layer(name='clustering').set_weights([kmeans.cluster_centers_]) 
 #----------------------------GET ENCODING FOR TESTING DATA---------------------------------------------------
 try:
@@ -264,36 +299,37 @@ except:
 #plot_model(model, to_file=DEC_model_fname, show_shapes=True)
 #from IPython.display import Image
 #Image(filename=DEC_model_fname)
-
-plt.figure(figsize=(20,6))
-
-plt.subplot(1,2,2)
-plt.plot(hist['epoch'], hist['train_mae_loss'], label='train_mae_loss')
-plt.plot(hist['epoch'], hist['val_mae_loss'], label='val_mae_loss')
-plt.xlabel('Epochs')
-plt.title('Training Mean Abs. Error')
-plt.legend()
-
-plt.subplot(1,2,1)
-plt.plot(hist['epoch'], hist['train_mse_loss'], label='train_mse_loss')
-plt.plot(hist['epoch'], hist['val_mse_loss'], label='val_mse_loss')
-plt.xlabel('Epochs')
-plt.title('Training Mean Squared Error')
-plt.legend()
-
-plt.savefig(f'/home/vsbh19/initial_python_files/MSE_MAE_Subplots_Loss_Learning_Curve_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.png')
-#plt.show() 
+if h == True:
+    plt.figure(figsize=(20,6))
+    
+    plt.subplot(1,2,2)
+    plt.plot(hist['epoch'], hist['train_mae_loss'], label='train_mae_loss')
+    plt.plot(hist['epoch'], hist['val_mae_loss'], label='val_mae_loss')
+    plt.xlabel('Epochs')
+    plt.title('Training Mean Abs. Error')
+    plt.legend()
+    
+    plt.subplot(1,2,1)
+    plt.plot(hist['epoch'], hist['train_mse_loss'], label='train_mse_loss')
+    plt.plot(hist['epoch'], hist['val_mse_loss'], label='val_mse_loss')
+    plt.xlabel('Epochs')
+    plt.title('Training Mean Squared Error')
+    plt.legend()
+    
+    plt.savefig(f'/home/vsbh19/initial_python_files/MSE_MAE_Subplots_Loss_Learning_Curve_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.png')
+    #plt.show() 
 #saving = os.path.dirname()
 # if not os.path.exists("/nobackup/vsbh19/snovermodels/"):
 #     os.makedirs("/nobackup/vsbh19/snovermodels/")
 #dirname = os.path.join("/nobackup/vsbh19/snovermodels/")
 
-autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}.h5"), save_format= "h5") #must be .h5 .keras not compatible
-encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_Encoder_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}.h5"), save_format= "h5")
-model.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_DEC_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.h5"), save_format= "h5")
+autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Autoencoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "")), save_format= "h5") #must be .h5 .keras not compatible
+encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Encoder_Nov23_{path_add}.h5"%("FLIP" if switch == True else "")), save_format= "h5")
+model.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == True else "")), save_format= "h5")
+decoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Decoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "")), save_format= "h5")
 #autoencoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Autoencoder_Nov23_{files[filenum]}.keras")
 #encoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_{files[filenum]}.keras")
-with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.h5" , "w") as f:
+with h5py.File(f"/nobackup/vsbh19/training_datasets/%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == True else "") , "w") as f:
     f.create_dataset("X_train", data= X_train)
     f.create_dataset("X_val", data = X_val)
     f.create_dataset("Labels_Train", data = labels_train)

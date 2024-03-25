@@ -45,13 +45,19 @@ try:
     duration = int(sys.argv[4])
     n_clusters = int(sys.argv[5])
     norm = sys.argv[6]
+    switch = sys.argv[7]
 except:
-    filenum = 7
+    filenum = 0
     component = [2]
-    stationname = "Sinosoid"
+    stationname = "all"
     duration = 240
-    n_clusters = 2
-    norm = "max"
+    n_clusters = 6
+    norm = "l2"
+    switch = "False"
+
+path_add = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}" #for when there are NO clusters assigned
+path_add_cluster = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}"
+
 #autoencoder = load_model(nobackupname + f"Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{stationname}.keras")
 #encoder = load_model(nobackupname + f"Saved_Encoder1_Nov23_{files[filenum][:-3]}_{stationname}.keras")
 #encoder = load_model("/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_ev0000364000_IWEH.keras")
@@ -61,7 +67,7 @@ except:
 # Specify filenames
 #encoder_filename = f"Saved_Encoder1_Nov23_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5"
 #autoencoder_filename = f"Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5"
-DEC_Filename = f"Saved_DEC_Nov23_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5"
+DEC_Filename = f"%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == "True" else "")
 # Construct absolute paths
 DEC_path = os.path.join("/nobackup/vsbh19/snovermodels/", DEC_Filename)
 #autoencoder_path = os.path.join("/nobackup/vsbh19/snovermodels/", autoencoder_filename)
@@ -70,7 +76,7 @@ DEC = load_model(DEC_path, custom_objects = {"ClusteringLayer": ClusteringLayer}
 ###ABOVE ADAPTED FROM https://www.tensorflow.org/guide/keras/serialization_and_saving#registering_the_custom_object
 #autoencoder = load_model(autoencoder_path); 
 
-with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5" , "r") as f:
+with h5py.File(f"/nobackup/vsbh19/training_datasets/%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == "True" else ""), "r") as f:
     X_train = f.get("X_train")[:]
     #print(X_train[0,:,:,0]); sys.exit()
     X_val = f.get("X_val")[:]
@@ -114,7 +120,7 @@ batch_size=512                     # number of samples in each batch
 tol = 0.001                        # tolerance threshold to stop training
 loss = 0                           # initialize loss
 index = 0                          # initialize index to start 
-maxiter = 40000   # number of updates to rub before halting. (~12 epochs)
+maxiter = 40000 # number of updates to rub before halting. (~12 epochs)
 update_interval = 315             # Soft assignment distribution and target distributions updated evey 315 batches. 
                                    #(~12 updates/epoch)
 
@@ -139,6 +145,9 @@ loss_list = np.zeros([maxiter,3])
 def fit(X, labels, labels_last, loss, index, index_array):
     global delta_labels, p, q
     delta_labels = []
+    global losses , x
+    losses = []
+    
     for ite in range(int(maxiter)):
         if ite % update_interval == 0:
             print(ite)
@@ -169,10 +178,21 @@ def fit(X, labels, labels_last, loss, index, index_array):
             #Retrain the model 
         idx = index_array[index * batch_size: min((index+1) * batch_size, X.shape[0])]
         loss = DEC.train_on_batch(x=X[idx], y=[p[idx], X[idx,:136,:40,:]])
+        losses.append(loss)
         index = index + 1 if (index + 1) * batch_size <= X.shape[0] else 0   
         #print(ite)
-    plt.plot(np.linspace(0, len(delta_labels), len(delta_labels)), delta_labels)
-    plt.plot(len(loss_list), )
+    #plt.plot(np.linspace(0, len(delta_labels), len(delta_labels)//update_interval), delta_labels)
+    losses = np.array(losses)
+    #plot_x = [i*update_interval for i in range(len(losses))]
+    try:
+        x = np.linspace(0,ite+1,ite)
+        plt.plot(x, losses[:,0], x , losses[:,1], x , losses[:,2])
+        plt.yscale("log")
+        plt.title("Loss from Kmeans")
+        plt.legend()
+        plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/%sKMEANSLOSS_{path_add_cluster}" %("FLIP" if switch == True else ""))
+    except:
+        print("Losses figure cannot be created")
     return labels, X_reconst
 
 labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, loss, index, np.arange(X_train.shape[0]))#; sys.exit()
@@ -181,7 +201,7 @@ labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, los
 #if testing == 1:
 #    labels_Xtest, test_reconst = fit(X_test, Labels_Last_Test, loss, index, np.arange(X_test.shape[0]))
 
-with h5py.File(nobackupname + f'/DEC_Training_LatentSpaceData_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5', 'w') as nf:
+with h5py.File(nobackupname + f'/%sDEC_Training_LatentSpaceData_{path_add_cluster}.h5' %("FLIP" if switch == True else ""), 'w') as nf:
     #nf.create_dataset('Train_EncodedData', data=enc_train, dtype=enc_train.dtype)
     #nf.create_dataset("Train_Rec", data = reconst)
     #nf.create_dataset('Val_EncodedData', data=val_enc, dtype=val_enc.dtype)
