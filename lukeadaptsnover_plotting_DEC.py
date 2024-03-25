@@ -15,7 +15,10 @@ Created on Tue Jan 16 11:37:37 2024
 #-------------------------------------------modules loasdd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+<<<<<<< HEAD
 import matplotlib.patheffects as pe
+=======
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
 import random
 import numpy as np
 import h5py
@@ -26,8 +29,12 @@ from retrieve_earthquake_prelim import heythem
 from obspy import UTCDateTime
 import csv 
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score
+<<<<<<< HEAD
 from scipy.signal import savgol_filter 
 from drumplot import drumplot
+=======
+
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
 
 files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5","ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
 file_times = ["2014-07-11T19:22:00", "2016-04-14T12:26:35", "2021-03-20T09:09:44", "2022-01-21T16:08:37", "2016-11-21T20:59:46", "2015-02-16T23:06:34.680000", "2000-01-01T00:00.0000", "1900-01-01T00:00:00.0000"]
@@ -55,7 +62,11 @@ except:
     switch = False
 drum_query =False
 sample_rate = 100
+<<<<<<< HEAD
 samples_per_day = 60*60*24*sample_rate #seconds*mins*hours*sample rate in hertz
+=======
+samples_per_day = 3600*24*sample_rate
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
 month_diff = 2700000 # seconds month
 day_diff = 3600*24 #seconds in day
 if files[filenum] == "Sinosoid.h5":
@@ -154,7 +165,10 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
     """
     if "truths" in kwargs:
         truths = kwargs["truths"]
+<<<<<<< HEAD
     plot_time_dist = kwargs["plot_time_dist"] if "plot_time_dist" in kwargs else False
+=======
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     fig1=plt.figure() 
     global time_idxes, station_idxes, fre
     global clustered_data
@@ -214,6 +228,7 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
             plt.savefig(f"/home/vsbh19/plots/Clusters/%s{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_Cluster{cluster_num}.png" %("FLIP" if switch == True else ""))
         plt.suptitle('Label {}'.format(cluster_num), ha='left', va='center', fontsize=28)    
         plt.tight_layout()
+<<<<<<< HEAD
     
     ##----DRUM PLOT ----------------------------
     
@@ -239,11 +254,14 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
         sys.exit("DRUMPLOTS CREATED")
         
      
+=======
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     
     ###-------PLOT LABELS IN TIME AND SPACE-----------------------
     plt.show()
     #sys.exit()
     plt.figure(2)
+<<<<<<< HEAD
     
     global step
     step = (end_day-start_day)/50 #in days !!
@@ -266,6 +284,30 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
     try:
         with open(f"eventt_{str(endtt - month_diff)[:7]}_to_{str(endtt)[:7]}_mag{minmag}.txt","r") as r:    
     
+=======
+    colours = ["red", "blue", "green", "purple",  "orange", "black"]#; sys.exit()
+    global step
+    step = (end_day-start_day)/200 #in days !!
+    sliding_step = step/16
+    global steps, values_y, r, reader, steps_sec, event_mag, event_times, reader, mag5
+    steps = np.linspace(start_day, end_day, num = int((end_day-start_day)/step)) #UNIT: DAYS
+    steps = np.linspace(start_day, end_day, num = int((end_day-start_day) - step /sliding_step)) #UNIT: DAYS
+    if supervised == True: 
+        try: 
+            truths 
+        except: 
+            sys.exit("YOU NEED TO DEFINE WHICH TRUTHS YOURE USING")
+        cm = confusion_matrix(truths, labels)
+        disp = ConfusionMatrixDisplay(confusion_matrix = cm)
+        disp.plot()
+        print("ACCRUACY", accuracy_score(truths, labels))
+        print("PRECISION", precision_score(truths, labels))
+        
+        
+    try:
+        with open(f"eventt_{str(endtt - month_diff)[:7]}_to_{str(endtt)[:7]}_mag{minmag}.txt","r") as r:    
+    
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
             reader = pd.read_csv(r, delimiter='|', names=['ID', 'Time', "Location", "Magnitude", "Depths" ])
             mag_col = reader["Magnitude"]
             new_mag_col = mag_col.apply(lambda x : float(x[:-5])) #converts magnitude  coloumn to floast
@@ -274,7 +316,12 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
             #PLEASE CHECK THE ORDER OF THE ABOVE AND MAKE SURE NEW TIME COL IS IN THE SAME ORDER AND STEPS SEC 
             reader["Magnitude"] = new_mag_col
             reader["Time"] = new_time_col 
+<<<<<<< HEAD
 
+=======
+            
+            
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     except FileNotFoundError:
         try:
             with open(f"events_{files[filenum]}_mag{float(minmag)}.txt","r") as r:
@@ -313,7 +360,11 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
         distances_x.append(dist_x)
         #sys.exit()
         #dist = [[i for i in u if u > start_day] for u in time_idexs if u 
+<<<<<<< HEAD
     #plt.show()
+=======
+    plt.show()
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     plt.xlabel("Position in time in days")
     plt.ylabel("Label")
     #-------------------------------------plottting cluster frequency densities for time -----------------------------------------------
@@ -353,6 +404,7 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
             sti = station_positions.loc[station_positions['Label'] == i, 'Time']
             
             axes[0].plot(np.sort(sti), np.linspace(0, 1, len(sti), endpoint=False), label=f'Label {i}', color=colours[i])
+<<<<<<< HEAD
         
         #for i in reader["Time"]:
             #axes[0].axvline(x=i, color='red', linestyle='--')
@@ -415,6 +467,86 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
             global colors
             colors = colours
             axes[i].set_prop_cycle(color=colours)
+=======
+        
+        #for i in reader["Time"]:
+            #axes[0].axvline(x=i, color='red', linestyle='--')
+        
+        ax4 = axes[1].twinx()
+        ax5 = axes[2].twinx()
+        ax4.plot(steps_sec, mag4_sums, label = "Mag 4", linestyle="--")
+        ax5.plot(steps_sec, mag4_sums, label = "Mag 4", linestyle="--")
+        ax4.plot(steps_sec, mag5_sums, label = "Mag 5", linestyle="--")
+        ax5.plot(steps_sec, mag5_sums, label = "Mag 5", linestyle="--")
+        
+        """
+        
+        
+        
+        
+        *****************************
+        
+        
+        
+        STEFAN  this is where i get issues 
+        
+        
+        
+        
+        
+        
+        ********************
+        
+        
+        
+        
+        """
+        
+        global values_cul; values_cul = []; global array
+        global sorted_times;sorted_times = station_positions.sort_values(by="Time", ascending = True)
+        #plt.figure(6)
+        #plt.plot(sorted_times); sys.exit()
+        for i in range(n_clusters):
+            #ti = sorted_times.loc[sorted_times['Label'] == i, 'Time'].copy()
+            #sti = station_positions.loc[station_positions['Label'] == i, 'Time']
+            # plt.figure(6)
+            # plt.plot(np.sort(sorted_times), marker = "o", ms = 0.01); sys.exit()
+            #global values_y
+            #PLOTTING OCCURANCES OF LBABLES IN TIME 
+            values_y = []
+            for z,q in enumerate(steps): #plots each occurance per 6 hours of day
+            #for z in range(850):
+                #print(q); sys.exit()
+                start_time =  z* sliding_step * day_diff 
+                end_time = ((z * sliding_step) + step)* day_diff  #was z originally 
+                #array = [v for v in sti if start_time <= v <= end_time]
+                array = sorted_times[(sorted_times['Time'] >= start_time) & (sorted_times['Time'] <= end_time) & (sorted_times['Label'] == i)]
+                values_y.append(len(array))
+            values_cul.append(values_y)
+            # axes[1].plot(steps_sec, values_y, color = colours[i], label = f"Label {i}")
+            # axes[2].plot(steps_sec, values_y, color = colours[i], label = f"Label {i}")
+            plt.figure(7)
+            plt.scatter(steps_sec, values_y, label=f"Label {i}", color=colours[i], marker='o')
+            plt.plot(np.sort(sti))
+        #stacks = np.vstack([q for q in values_cul])
+        axes[1].stackplot(steps_sec, *values_cul, labels=[f"Label {i}" for i in range(n_clusters)], colors=colours, baseline = "zero")
+        axes[2].stackplot(steps_sec, *values_cul, labels=[f"Label {i}" for i in range(n_clusters)], colors=colours, baseline = "zero")
+    
+        """
+        end of issues
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        """
+        #sys.exit()
+        
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
         
         current = sorted_times["Label"].iloc[0] #CURRENT LABEL
         counter_old = 1 #CURRENT TIME 
@@ -423,13 +555,33 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
            
            if sorted_times["Label"].iloc[q] != current: # IF LABEL DIFFERS
                #REQUIREMENT TO MOVE ON LABEL HAS BEEN ACHIEVED SO AN XVSPAN WILL BE PLOTTED
+<<<<<<< HEAD
                 axes[3].axvspan(counter_old*duration+(duration/4), 
                             q*duration+(duration/4), alpha = alpha, color = colours[current], ymin = 0.1,   label = f"Label {current}")
+=======
+                axes[3].axvspan(counter_old*240+80, 
+                            q*240+80, alpha = alpha, color = colours[current], ymin = 0.1,   label = f"Label {current}")
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
                 # axes[2].axvspan(counter_old*240+80, 
                 #             q*240+80, alpha = alpha, color = colours[current],  ymin = 0.1,  label = f"Label {current}")
                 counter_old = q 
                 current = sorted_times["Label"].iloc[q] 
+<<<<<<< HEAD
         #axes[3].legend(bbox_to_anchor=(1.2, 1))
+=======
+          
+    
+        #mag4.index = pd.to_datetime(mag4.index, utc = True)
+        
+
+# Create a rolling window of size 7 (adjust as needed)
+        
+
+# Display the result
+        
+        dist_y.append(len(values_y))#;print(len(values_y)); sys.exit()
+    
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
         
         #axes[1].xaxis.set_major_locator(mdates.HourLocator(interval=1))
         #axes[1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M:%S UTC'))
@@ -442,6 +594,7 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
         axes[0].set_ylabel("Cumulative distribution")
         axes[1].set_ylabel("Logirithimic frequency")
         axes[2].set_ylabel("Linear frequency of clusters")
+<<<<<<< HEAD
         axes[2].set_xlabel("TIME IN DAYS")
         axes[3].set_xlabel("TIME IN DAYS")
         plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/%s{files[filenum][:-3]}_{u}_{component}_{duration}_{norm}_Cluster{n_clusters}_Stack.png" %("FLIP" if switch == True else ""))
@@ -500,6 +653,11 @@ def print_all_clusters(data, labels, num_clusters, positions, stations, **kwargs
         plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/%s{files[filenum][:-3]}_{u}_{component}_{duration}_{norm}_Cluster{n_clusters}_CrossCor.png" %("FLIP" if switch == True else ""))
         plt.close()
         #distance = (all_labels[1][1]**2 + all_labels[2][1])**2
+=======
+        axes[2].set_xlabel("TIME IN SECONDS")
+        plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/{files[filenum][:-3]}_{u}_{component}_{duration}_{norm}_Cluster{cluster_num}.png")
+        #plt.tight_layout()
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
         #sys.exit()
 #-----------------------------------------------------------------------------------------------------------------------------------------
     #ti_scale = f.get("Time scale") [:]
@@ -526,7 +684,7 @@ startt = endtt - month_diff
 if synthetic == False: 
     events = heythem("IU",["MAJO"], startt=endtt - month_diff,  endt=endtt, magnitude = minmag, verbose = 2)#; sys.exit()
 print_cluster_size(labels_train)
-print_all_clusters(X_train, labels_train, n_clusters, X_train_pos, X_train_station)#; sys.exit()
+print_all_clusters(X_train, labels_train, n_clusters, X_train_pos, X_train_station); sys.exit()
 #-----------------------------------------------------------------------------------------
 for u,idx in enumerate(np.random.randint(0,len(X_train),25)):
     fig = plt.figure(figsize=(8,17))
@@ -548,7 +706,11 @@ for u,idx in enumerate(np.random.randint(0,len(X_train),25)):
     ax0.set_ylim([80,0])
     ax0.set_aspect(1)
     ax0.invert_yaxis()      
+<<<<<<< HEAD
     #plt.colorbar(cb0, ax = ax0)
+=======
+    plt.colorbar(cb0, ax = ax0)
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     if supervised == True:
         ax0.set_title(f'Original Spectrogram \nCLASS{truths_train[idx]}')
     else: 
@@ -571,7 +733,11 @@ for u,idx in enumerate(np.random.randint(0,len(X_train),25)):
     
     ax2.set_aspect(1)
     ax2.invert_yaxis()      
+<<<<<<< HEAD
     #plt.colorbar(cb2, ax = ax2)
+=======
+    plt.colorbar(cb2, ax = ax2)
+>>>>>>> 6d190e72fe3dd7b91e96ae499ae6669bc73106d3
     if supervised == True:
         ax2.set_title(f'Reconstructed  Spectrogram \n CLASS{truths_train[idx]}')
     else: 
