@@ -201,7 +201,7 @@ labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, los
 #if testing == 1:
 #    labels_Xtest, test_reconst = fit(X_test, Labels_Last_Test, loss, index, np.arange(X_test.shape[0]))
 
-with h5py.File(nobackupname + f'/%sDEC_Training_LatentSpaceData_{path_add_cluster}.h5' %("FLIP" if switch == True else ""), 'w') as nf:
+with h5py.File(nobackupname + f'/%sDEC_Training_LatentSpaceData_{path_add_cluster}.h5' %("FLIP" if switch == "True" else ""), 'w') as nf:
     #nf.create_dataset('Train_EncodedData', data=enc_train, dtype=enc_train.dtype)
     #nf.create_dataset("Train_Rec", data = reconst)
     #nf.create_dataset('Val_EncodedData', data=val_enc, dtype=val_enc.dtype)
@@ -212,4 +212,4 @@ with h5py.File(nobackupname + f'/%sDEC_Training_LatentSpaceData_{path_add_cluste
     
     #nf.create_dataset("Test_ReconstructData", data=test_reconst, dtype = test_reconst.dtype)
     #nf.create_dataset("Labels_Test", data=labels_Xtest, dtype = labels_Xtest.dtype)
-sys.exit(1)
+sys.exit(1) #completion stamp to shell 

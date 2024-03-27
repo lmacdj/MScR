@@ -56,7 +56,7 @@ try:
     batch_sz = int(sys.argv[10])
     print("SUCCESSFUL DECLARATION OF VARIABLES")
 except: 
-    filenum = 0
+    filenum = 1
     component = [2]
     station = "all"
     duration = 240

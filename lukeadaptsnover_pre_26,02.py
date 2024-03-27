@@ -59,7 +59,7 @@ except  IndexError:
                     #IF RUNNING SCRIPT LOCALLY 
     filenum = 1
     component = [2]
-    station=  "AKIH"
+    station=  "AIRH"
     start_day = 0
     end_day = 31.25
     overlap = 80
@@ -84,6 +84,39 @@ ev0000364000. 60000 samples = 10 minutes
 
 ###############################################SPLIT DATA INTO CHUNKS#####################################
 def split(X, chunk, **args): 
+    #print("good")
+    station_loc = args["station_loc"] if "station_loc" in args else None
+        
+    global x_ret; global data_points_per_chunk
+    data_points_per_chunk = int(len(X)/chunk) #amount to move through per chunk
+    """
+    Ensuring the number of data points per chunk is 
+    a multiple of the number of points per stations avoids overlap 
+    as each chunk will belong to one station only 
+    ALL TIMES IN THIS FILE ARE UPLOADED AS RAW DATA POINTS
+    NOT SECONDS 
+    NOT DAYS 
+    TIMES ARE IN UNITS OF RAW DATAPOINTS
+    """
+    if station_loc != None:
+        x_ret = np.empty((chunk,data_points_per_chunk+2)) #file for chunks
+        for i in range(0, chunk): #ITERATE DATA AND SPLIT INTO CHUNKS 
+            #print(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk].shape)#; sys.exit()
+            x_ret[i,0] = int(i*data_points_per_chunk) #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
+            add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
+            x_ret[i, 1:] = station_loc #UPLOAD STATION
+            x_ret[i,2:] = add #Upload dat
+            
+    else: 
+        x_ret = np.empty((chunk,data_points_per_chunk+1)) #file for chunks
+        for i in range(0, chunk): #ITERATE DATA AND SPLIT INTO CHUNKS 
+            x_ret[i,0] = int(i*data_points_per_chunk) #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
+            add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
+            x_ret[i, 1:] = add #upload data
+            #PLOAD EACH OF XS POSITIION IN TIME HERE 
+    return x_ret
+#--------------------------------------------------------------------------------------------------------------------------------------------------
+def split_batch(X, chunk, **args): 
     #print("good")
     station_loc = args["station_loc"] if "station_loc" in args else None
         
@@ -202,7 +235,13 @@ else:
     stationname = [station]
 #--------------------------------------------------------------------------------------------------------------------------------------------------  
 diff_amount = int(end_day*samples_per_day) - int(start_day*samples_per_day) #TOTAL SAMPLES IN FOR EACH STATION
-master_file = np.zeros((len(component),len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))#; sys.exit() #all earthquake data in here!
+try:
+    master_file = np.zeros((len(component),len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))#; sys.exit() #all earthquake data in here!
+except Exception as e: 
+    print("Numpy array cannot be passed due to", e)
+    print("Each station will be processed in a batches")
+    batch_size_pre = int(0.1* (len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))
+    
 with h5py.File(directory + files[filenum]) as f:
     print(f.keys())
     if metadata ==  True:
