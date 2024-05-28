@@ -36,7 +36,7 @@ date_name = "Nov23"
 #dirname = os.path.dirname("/home/vsbh19/initial_python_files/")
 nobackupname = os.path.dirname("/nobackup/vsbh19/snovermodels/")
 
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5", "April2005"]
 
 try:
     filenum = int(sys.argv[1]) # Which file we want to read.
@@ -46,18 +46,34 @@ try:
     n_clusters = int(sys.argv[5])
     norm = sys.argv[6]
     switch = sys.argv[7]
+    testing = int(sys.argv[8])
+    high_pass = int(sys.argv[9])
+    latent_dim = int(sys.argv[10])
 except:
-    filenum = 0
+    filenum = 5
     component = [2]
     stationname = "all"
     duration = 240
-    n_clusters = 6
+    n_clusters = 3
     norm = "l2"
     switch = "False"
+    testing = 0 #1 yes 0 training 10 both
+    high_pass =1 
+    latent_dim = 14
+noise_stamp = True if filenum == 7 else False
+#%% EXTREMELY IMPORTANT SHIT 
+#try: 
+#path_add = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}_Lat{latent_dim}" #for when there are NO clusters assigned
+#except:
+#path_add = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}" #for when there are NO clusters assigned
+path_add = "MSeedSpectrograms_April2005_all_U_120_l2"
+#try:
+#path_add_cluster = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}_Lat{latent_dim}_C{n_clusters}"
+#except: 
+#path_add_cluster = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}_C{n_clusters}"
 
-path_add = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}" #for when there are NO clusters assigned
-path_add_cluster = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}"
-
+path_add_cluster = "MSeedSpectrograms_April2005_all_U_120_l2_C2"
+#%%
 #autoencoder = load_model(nobackupname + f"Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{stationname}.keras")
 #encoder = load_model(nobackupname + f"Saved_Encoder1_Nov23_{files[filenum][:-3]}_{stationname}.keras")
 #encoder = load_model("/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_ev0000364000_IWEH.keras")
@@ -67,7 +83,7 @@ path_add_cluster = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_
 # Specify filenames
 #encoder_filename = f"Saved_Encoder1_Nov23_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5"
 #autoencoder_filename = f"Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5"
-DEC_Filename = f"%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == "True" else "")
+DEC_Filename = f"%s%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == "True" else "", "NOISE_STA" if noise_stamp else "")
 # Construct absolute paths
 DEC_path = os.path.join("/nobackup/vsbh19/snovermodels/", DEC_Filename)
 #autoencoder_path = os.path.join("/nobackup/vsbh19/snovermodels/", autoencoder_filename)
@@ -75,27 +91,39 @@ DEC_path = os.path.join("/nobackup/vsbh19/snovermodels/", DEC_Filename)
 DEC = load_model(DEC_path, custom_objects = {"ClusteringLayer": ClusteringLayer});
 ###ABOVE ADAPTED FROM https://www.tensorflow.org/guide/keras/serialization_and_saving#registering_the_custom_object
 #autoencoder = load_model(autoencoder_path); 
-
-with h5py.File(f"/nobackup/vsbh19/training_datasets/%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == "True" else ""), "r") as f:
-    X_train = f.get("X_train")[:]
-    #print(X_train[0,:,:,0]); sys.exit()
-    X_val = f.get("X_val")[:]
-    Labels_Train = f.get("Labels_Train")[:]
-    labels_last_train = f.get("Labels_Last_Train")[:]
-    try:
-        X_test = f.get("X_test")[:]
-        Labels_Test = f.get("Labels_Test")[:]
-        Labels_Last_Test = f.get("Labels_Last_Test")[:]
-        testing = 1 
-    except: 
-        print("NO TESTING DATA AVAILABLE")
-        testing = 0
-    
+if testing == 0 or testing == 10:
+    print("EXTRACTING TRAINING DATASET")
+    with h5py.File(f"/nobackup/vsbh19/training_datasets/%s%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == "True" else "", "NOISE_STA" if noise_stamp else ""), "r") as f:
+        #print(f.keys()); sys.exit()
+        X_train = f.get("X_train")[:]
+        #print(X_train[0,:,:,0]); sys.exit()
+        X_val = f.get("X_val")[:]
+        Labels_Train = f.get("Labels_Train")[:]
+        labels_last_train = f.get("Labels_Last_Train")[:]
+        try:
+            X_test = f.get("X_test")[:]
+            Labels_Test = f.get("Labels_Test")[:]
+            Labels_Last_Test = f.get("Labels_Last_Test")[:]
+            testing = 1 
+        except: 
+            print("NO TESTING DATA AVAILABLE")
+            testing = 0
+if testing == 1 or testing == 10: 
+     print("EXTRACTING TESTING DATASET")
+     with h5py.File(f"/nobackup/vsbh19/training_datasets/X_TEST_{path_add_cluster}.h5", "r") as f2:
+         
+         print(f2.keys()); sys.exit()
+         X_test = f2.get("X_test")[:]
+         Labels_Test = f2.get("Labels_Test")[:]
+         Labels_Last_Test = f2.get("Labels_Last_Test")[:]
+         
+         
 #val_reconst = autoencoder.predict(X_val, verbose = 1) #reconstruction of validation data
 #val_reconst = autoencoder.predict(X_val, verbose = 1)#; sys.exit()
 #train_reconst = autoencoder.predict(X_train, verbose = 1)
 #val_enc = encoder.predict(X_val, verbose = 1)         #embedded latent space samples of validation data
     #embedded latent space samples of training data
+#%%
 """ DEC STUFF
 """
 def print_cluster_size(labels):
@@ -142,6 +170,8 @@ def target_distribution(q):
     return (weight.T / weight.sum(1)).T
 
 loss_list = np.zeros([maxiter,3]) 
+
+
 def fit(X, labels, labels_last, loss, index, index_array):
     global delta_labels, p, q
     delta_labels = []
@@ -190,26 +220,39 @@ def fit(X, labels, labels_last, loss, index, index_array):
         plt.yscale("log")
         plt.title("Loss from Kmeans")
         plt.legend()
-        plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/%sKMEANSLOSS_{path_add_cluster}" %("FLIP" if switch == True else ""))
+        plt.savefig(f"/home/vsbh19/plots/Clusters_station/{files[filenum]}/%s%sKMEANSLOSS_{path_add_cluster}.png" %("FLIP" if switch == True else "", "NOISE_STA" if noise_stamp else ""))
     except:
         print("Losses figure cannot be created")
     return labels, X_reconst
-
-labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, loss, index, np.arange(X_train.shape[0]))#; sys.exit()
+if testing == 0 or testing == 10:
+    labels_Xtrain, train_reconst = fit(X_train, Labels_Train, labels_last_train, loss, index, np.arange(X_train.shape[0]))#; sys.exit()
 
 #labels_Xval, val_reconst = fit(X_val, labels_last, loss, index, np.arange(X_val.shape[0]))
-#if testing == 1:
-#    labels_Xtest, test_reconst = fit(X_test, Labels_Last_Test, loss, index, np.arange(X_test.shape[0]))
+if testing == 1 or testing == 10:
+    labels_Xtest, test_reconst = fit(X_test, Labels_Test, Labels_Last_Test, loss, index, np.arange(X_test.shape[0]))
+#if testing == 0:
+with h5py.File(nobackupname + f'/%s%sDEC_Training_LatentSpaceData_{path_add_cluster}.h5' %("FLIP" if switch == "True" else "", "NOISE_STA" if noise_stamp else ""), 'a') as nf:
+#nf.create_dataset('Train_EncodedData', data=enc_train, dtype=enc_train.dtype)
+#nf.create_dataset("Train_Rec", data = reconst)
+#nf.create_dataset('Val_EncodedData', data=val_enc, dtype=val_enc.dtype)
+#nf.create_dataset("Val_ReconstructData", data=val_reconst, dtype = val_reconst.dtype)
+    if testing == 0 or testing == 10:
+        try:
+            nf.create_dataset("Train_ReconstructData", data=train_reconst, dtype = train_reconst.dtype)
+            nf.create_dataset("Labels_Train", data = labels_Xtrain, dtype = labels_Xtrain.dtype)
+        except: 
+            print("Doesn't work")
+            del nf["Train_ReconstructData"]; del nf["Labels_Train"]
+            nf.create_dataset("Train_ReconstructData", data=train_reconst, dtype = train_reconst.dtype)
+            nf.create_dataset("Labels_Train", data = labels_Xtrain, dtype = labels_Xtrain.dtype)
+    if testing == 1 or testing == 10: 
+        try:
+            nf.create_dataset("Test_ReconstructData", data=test_reconst, dtype = test_reconst.dtype)
+            nf.create_dataset("Labels_Test", data=labels_Xtest, dtype = labels_Xtest.dtype)
+        except:
+            print("Doesnt work")
+            del nf["Test_ReconstructData"]; del nf["Labels_Test"]
+            nf.create_dataset("Test_ReconstructData", data=test_reconst, dtype = test_reconst.dtype)
+            nf.create_dataset("Labels_Test", data=labels_Xtest, dtype = labels_Xtest.dtype)
 
-with h5py.File(nobackupname + f'/%sDEC_Training_LatentSpaceData_{path_add_cluster}.h5' %("FLIP" if switch == "True" else ""), 'w') as nf:
-    #nf.create_dataset('Train_EncodedData', data=enc_train, dtype=enc_train.dtype)
-    #nf.create_dataset("Train_Rec", data = reconst)
-    #nf.create_dataset('Val_EncodedData', data=val_enc, dtype=val_enc.dtype)
-    #nf.create_dataset("Val_ReconstructData", data=val_reconst, dtype = val_reconst.dtype)
-    
-    nf.create_dataset("Train_ReconstructData", data=train_reconst, dtype = train_reconst.dtype)
-    nf.create_dataset("Labels_Train", data = labels_Xtrain, dtype = labels_Xtrain.dtype)
-    
-    #nf.create_dataset("Test_ReconstructData", data=test_reconst, dtype = test_reconst.dtype)
-    #nf.create_dataset("Labels_Test", data=labels_Xtest, dtype = labels_Xtest.dtype)
 sys.exit(1) #completion stamp to shell 

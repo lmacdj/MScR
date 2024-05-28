@@ -40,9 +40,12 @@ except:
     duration = 240
     n_clusters = 6
     norm = "l2"
+    high_pass = 1
 #with h5py.File(directory + f"/snovermodels/Training_LatentSpaceData_{files[filenum][:-3]}_{stationname}_{component}_{duration}.h5" , "r") as f:
 #    enc_train = f.get("Train_EncodedData")[:]
-with h5py.File(f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_C{n_clusters}.h5" , "r") as f:
+direct = f"/nobackup/vsbh19/training_datasets/X_train_X_val_{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}_C{n_clusters}.h5"
+#direct = f"{files[filenum][:-3]}_{stationname}_{component}_{duration}_{norm}_{high_pass}_C{n_clusters}.h5"
+with h5py.File(direct , "r") as f:
     print(f.keys())
     X_train = f.get("X_train")[:]
     X_val = f.get("X_val")[:]
@@ -105,9 +108,9 @@ plt.show()
 
 tic = time.time()
 inertia_gauss = []; sil_gau = []
-fig, ax = plt.subplots(3, 2, figsize=(15,8))
+fig, ax = plt.subplots(9,2, figsize=(15,8))
 ##################################TRY AND FIT TO GUASSIAN DISTRIBUTION###################
-for i in np.arange(2,8,1):
+for i in np.arange(2,20,1):
     kmeans_model_gauss = KMeans(n_clusters=i, n_init=10,# precompute_distances=True, 
                                 random_state=812).fit(gauss.T)
     inertia_gauss.append(kmeans_model_gauss.inertia_)
@@ -126,8 +129,8 @@ print('Reference Gaussian Distribution KMeans Computation Time : {0:4.1f} minute
 ################################TRY AND FIT TO UNIFORM DISTRIBUTION####################
 tic = time.time()
 inertia_uniform =[]; sil_uni = []
-fig, ax = plt.subplots(3, 2, figsize=(15,8))
-for i in np.arange(2, 8, 1):
+fig, ax = plt.subplots(9, 2, figsize=(15,8))
+for i in np.arange(2, 20, 1):
     kmeans_model_uniform = KMeans(n_clusters=i, n_init=10, #precompute_distances=True, 
                                   random_state=812).fit(uniform.T)
     inertia_uniform.append(kmeans_model_uniform.inertia_)

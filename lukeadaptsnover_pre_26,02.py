@@ -32,6 +32,7 @@ import time
 import pandas as pd
 import os
 from metadata import get_metadata
+from butter_filter import butter_filter
 #import obspy
 t1 = time.time()
 ################################################SET VAR ###########################################################################
@@ -50,6 +51,7 @@ try: #PIPELINE IN SHELL SCRIPT
     overlap =int(sys.argv[7])
     norm=sys.argv[8]
     out_to_wav = sys.argv[9]
+    high_pass = int(sys.argv[10])
     #print(out_to_wav)
     print("SUCCESSFUL variable declaration of file", files[filenum])
 except ValueError: 
@@ -57,16 +59,16 @@ except ValueError:
 except  IndexError: 
     print("Name Error RUNNING BACKUP VARIABLES")
                     #IF RUNNING SCRIPT LOCALLY 
-    filenum = 1
+    filenum = 5
     component = [2]
-    station=  "AIRH"
+    station=  "all"
     start_day = 0
     end_day = 31.25
-    overlap = 80
+    overlap = 40
     duration =  240
     norm= "l2"
-    out_to_wav = False
-    
+    out_to_wav = True
+    high_pass = 0
 #filenum = 2 
 
 metadata=False
@@ -82,7 +84,12 @@ ev0000364000. 60000 samples = 10 minutes
 
 """
 
-###############################################SPLIT DATA INTO CHUNKS#####################################
+#%% OUTFILE 
+
+
+path_out = f"Spectrograms_{files[filenum][:-3]}_{str(station)}_{str(component)}_{str(duration)}_{str(norm)}_{str(high_pass)}_training"
+
+#%%##############################################SPLIT DATA INTO CHUNKS#####################################
 def split(X, chunk, **args): 
     #print("good")
     station_loc = args["station_loc"] if "station_loc" in args else None
@@ -104,7 +111,18 @@ def split(X, chunk, **args):
             #print(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk].shape)#; sys.exit()
             x_ret[i,0] = int(i*data_points_per_chunk) #UPLOADS TIME STAMP FOR BEGINNING OF TIME SERIES
             add = np.reshape(X[i*data_points_per_chunk:(i+1)*data_points_per_chunk], data_points_per_chunk)
-            x_ret[i, 1:] = station_loc #UPLOAD STATION
+            x_ret[i, 1] = station_loc #UPLOAD STATION
+            
+            if high_pass == 1: #and np.random.randint(0,30,1) == 20:
+                # fig, ax = plt.subplots(2,1)
+                
+                # ax[0].plot(add)
+                add = butter_filter(add, "high",2,100, 3, False)
+                # ax[0].set_ylabel("Velocity nm/s")
+                # ax[1].plot(add)
+                # ax[0].set_xlabel("Data Points"); ax[1].set_ylabel("Velocity nm/s")
+                #sys.exit()
+                pass
             x_ret[i,2:] = add #Upload dat
             
     else: 
@@ -115,7 +133,7 @@ def split(X, chunk, **args):
             x_ret[i, 1:] = add #upload data
             #PLOAD EACH OF XS POSITIION IN TIME HERE 
     return x_ret
-#--------------------------------------------------------------------------------------------------------------------------------------------------
+#%%--------------------------------------------------------------------------------------------------------------------------------------------------
 def split_batch(X, chunk, **args): 
     #print("good")
     station_loc = args["station_loc"] if "station_loc" in args else None
@@ -148,7 +166,7 @@ def split_batch(X, chunk, **args):
             x_ret[i, 1:] = add #upload data
             #PLOAD EACH OF XS POSITIION IN TIME HERE 
     return x_ret
-#----------------------------------------------------------------------------------------------------------------------------------------------------
+#%%----------------------------------------------------------------------------------------------------------------------------------------------------
 def split_multiple_stations(X, test_split, stationname, chunks):
     
     totalchunks = int(chunks*len(stationname)) #chunks between stations
@@ -158,10 +176,11 @@ def split_multiple_stations(X, test_split, stationname, chunks):
     for i,u in enumerate(stationname): 
         X_return = split(X[i *diff_amount:(i+1)*diff_amount,0], chunks, station_loc = i)
         big_fat_file[i*chunks:(i+1)*chunks] = X_return 
+    
     X_train, X_test = train_test_split(
         big_fat_file, test_size=test_split, shuffle=True, random_state=812) #SPLITS THE TRAINING AND TESTING CHUNKS UP 
     return X_train, X_test
-#-------------------------------------------------------------------------------------------------------------------------------------------
+#%%-------------------------------------------------------------------------------------------------------------------------------------------
 def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS THESE INTO SMALLER WINDOWS
     #print("Good")
     X_return = []
@@ -184,7 +203,15 @@ def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS TH
                 spec_pos = int(i*100+index) #spectrogram position in time
                 tobe = [spec_pos] #the first number of the datafile corresponds to its position in time 
                 add = u[(i+1)*100: (i+1+duration)*100]
+                fig, ax = plt.subplots(2,1)
+                
+                #ax[0].plot(add)
                 add = normalize([add], norm = norm) #normalise requires 2d shapoe
+                # ax[0].set_ylabel("Velocity nm/s")
+                # ax[1].plot(add)
+                # ax[0].set_xlabel("Data Points"); ax[1].set_ylabel("Normalised velocity nm/s")
+                #sys.exit()
+                
                 add = np.reshape (add, (duration*100,)) #reshape it back to original
                 tobe.append(add) #time stamp at the beginnign of each file
                 
@@ -211,9 +238,18 @@ def windows(X, duration, overlap): #WITHIN TRAINING AND TESTING CHUNKS SPLITS TH
                 spec_pos = int(i*100+index) #spectrogram position in time
                 tobe = [spec_pos, station] #the first number of the datafile corresponds to its position in time 
                 add = u[(i+1)*100: (i+1+duration)*100]
+                # fig, ax = plt.subplots(2,1)
+                
+                # ax[0].plot(add)
                 add = normalize([add], norm = norm) #normalise requires 2d shapoe
                 addition = duration*100 #window length
                 add = np.reshape (add, (addition,)) #reshape it back to original
+                # ax[0].set_ylabel("Velocity nm/s")
+                # ax[1].plot(add)
+                # ax[0].set_xlabel("Data Points"); ax[1].set_ylabel("Normalised velocity nm/s")
+                # sys.exit()
+                #add = normalize([add], norm = norm) #normalise requires 2d shapoe
+                
                 tobe.append(add) #time stamp at the beginnign of each file
                 X_return.append(tobe)
                 
@@ -241,9 +277,9 @@ except Exception as e:
     print("Numpy array cannot be passed due to", e)
     print("Each station will be processed in a batches")
     batch_size_pre = int(0.1* (len(stationname)*(int(end_day*samples_per_day) - int(start_day*samples_per_day))))
-    
+    #%%
 with h5py.File(directory + files[filenum]) as f:
-    print(f.keys())
+    #print(f.keys()); print(f.attrs["lat"]); sys.exit()
     if metadata ==  True:
         attribute_names, attributes, time, mag = get_metadata(f, stationname[0]) #ASSIGN ATTRIBUTES TO EACH SPECTRORGRAM!
         #labels = ["Station", "Distance from Epicentre", "Elevation (sea level)", "Latitude", "Longitude"]
@@ -251,8 +287,8 @@ with h5py.File(directory + files[filenum]) as f:
         stations = [i for i in f.keys()]
         #filtered_attribute_names = [label for label in include_labels if label in attribute_names]
         #sys.exit()
-        df = pd.DataFrame({"Station": stationname,
-                "Distance from Epicentre": attributes[:,0],
+        df = pd.DataFrame({"Station":  stationname,
+                "Distance from Epicentre": + attributes[:,0],
                   "Elevation (sea level)": attributes[:,1],
                   "Latitude": attributes[:,2],
                   "Longitude": attributes[:,3]})
@@ -269,6 +305,7 @@ with h5py.File(directory + files[filenum]) as f:
     for i,u in enumerate(stationname): 
         
         X = np.array(f[u][component]) #30 DAY TIMESERIES FOR STATION AND COMPONENT
+        #plt.plot(X[-1800000:]); sys.exit()
         #print(end_day*samples_per_day)
         X = X[:,int(start_day*samples_per_day):int(end_day*samples_per_day)] #filters data for number of days I want to look at
         #print(len(X))
@@ -303,25 +340,27 @@ X_test = windows(X_test, duration, overlap)#; sys.exit()
 #number_samples_window = np.asarray(X_val).shape[1]
 #print("Number samples", len(X_train))
 
-seg =720*(duration/40) #for SHAPE=(None, 140, 41, 1)
-lap =639*(duration/40)#from the snover study of 90s overlap
+#seg =720*(duration/40) #for SHAPE=(None, 140, 41, 1)
+#lap =639*(duration/40)#from the snover study of 90s overlap
+seg = 300*(duration/40)
+lap = 208*(duration/40) #NEW FOR HIGH PASSING
 #seg = 12000  #for 11.5 hertz and 140 frequency bins 
 #seg = 1187 #WHAT WAS UNTIL 19 01
 beta = np.pi*1.8 #beta = pi*alpha (used in Snover (2020))
 def spectrogram_gen(X, seg, lap, beta):
     #global X
     if len(stationname) == 1:
-        frequencies, times, Sxx = spectrogram(X[0][1], 
+        frequencies, times, Sxx = spectrogram(X[5][1], 
                                   100, nperseg=seg, 
                                   noverlap=lap, 
-                                  window=("kaiser",  beta), nfft = seg*4)#; sys.exit()
+                                  window=("kaiser",  beta))# nfft = seg*4)#; sys.exit()
         second = False
         #SHAPE MUST EQUAL X,140,41,1
     else: 
-        frequencies, times, Sxx = spectrogram(X[0][2], 
+        frequencies, times, Sxx = spectrogram(X[1][2], 
                                       100, nperseg=seg, 
                                       noverlap=lap, 
-                                      window=("kaiser",  beta), nfft = seg*4)#; sys.exit()
+                                      window=("kaiser",  beta))# nfft = seg*4)#; sys.exit()
         #SHAPE MUST EQUAL X,140,41,1
         second = True
     # TASK INCEASE WINDOW LENGTH TO GET BETTER REPRESENTATION OF LOWER FREQUENCY
@@ -334,11 +373,14 @@ def spectrogram_gen(X, seg, lap, beta):
     # fig.add_subplot(1, 2, 1)
     plt.figure(15)
     plt.pcolormesh(times, frequencies, Sxx)
+    plt.xlabel("Time(s)")
+    plt.ylabel("Frequency (Hz)")
     # plt.colorbar()
     # # ax[0].suptitle(f"{station}")
     #fig.add_subplot(3, 2, 1)
-    
+    plt.show()
     # plt.plot(X_train[0][1])
+    #print(Sxx.shape, max(frequencies))
     #sys.exit()
     
     #plt.close(fig)
@@ -354,7 +396,7 @@ def spectrogram_gen(X, seg, lap, beta):
             
             frequencies, times, Sxx = spectrogram(u[1], 100,
                                               nperseg=seg, noverlap=lap,
-                                              window=("kaiser",  beta), nfft = seg*4)
+                                              window=("kaiser",  beta))# nfft = seg*4)
             Sxx = Sxx[:fre_cro_i]
             frequencies = frequencies[:fre_cro_i]
             #sys.exit()
@@ -371,7 +413,7 @@ def spectrogram_gen(X, seg, lap, beta):
             stations_indices.append(u[1])
             frequencies, times, Sxx = spectrogram(u[2], 100,
                                               nperseg=seg, noverlap=lap,
-                                              window=("kaiser",  beta), nfft = seg*4)
+                                              window=("kaiser",  beta))#, nfft = seg*4)
             #SHAPE MUST EQUAL X,140,41,1
             Sxx = Sxx[:fre_cro_i]
             frequencies = frequencies[:fre_cro_i]
@@ -390,8 +432,8 @@ tobe_train, frequencies_train, times_train, indices_train, stations_indices_trai
                                                                                                          seg, lap, beta)
 
 plt.plot(np.sort(indices_train))#; sys.exit()
-#------------------------------UPLOADING TRAINING AND VALIDATION DATA-----------------------------------
-with h5py.File(f"{directory}Spectrograms_" + files[filenum][:-3] + "_" + str(station) + "_" + str(component)+ "_" + str(duration) + "_" + str(norm) + "_training.h5", "w") as spectrograms:
+#%%------------------------------UPLOADING TRAINING AND VALIDATION DATA-----------------------------------
+with h5py.File(f"{directory}{path_out}.h5", "w") as spectrograms:
     
     
     #h5py._errors.unsilence_errors() #if errornous h5 file
@@ -431,7 +473,7 @@ del tobe_train, frequencies_train, times_train, indices_train, stations_indices_
 tobe_test, frequencies_test, times_test, indices_test, stations_indices_test, second = spectrogram_gen(X_test, 
                                                                                                     seg, lap, beta)
 
-with h5py.File(f"{directory}TESTING_Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}.h5", "w") as spectrograms:
+with h5py.File(f"{directory}TESTING_{path_out}.h5", "w") as spectrograms:
     indices = np.array(indices_test)
     dset = spectrograms.create_dataset("Data", data=tobe_test)
     locset = spectrograms.create_dataset("Indices", data = indices)

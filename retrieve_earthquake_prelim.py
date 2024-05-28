@@ -38,11 +38,11 @@ def heythem(network, station, **kwargs):
     startt=UTCDateTime("2012-05-22T00:00:01.0")
     endt=UTCDateTime("2022-12-05T23:59:59.0")
     magnitude = 6.0
-    maxradius = 15 #japan is approximately 15 degrees
+    maxradius = 9 #teleseism is defined as exceeding more than 1000km or 9 degrees of the earth
     verbose = 2
     stations = [station] if type(station) != list else station #alllows to iterate through one station
     global inventory
-    event_ids_set = set() #make sure we dont record the event
+    event_ids_set = set() #make sure we dont record the same event
     lats = []; longs = []
     for u in stations: 
         try:
@@ -125,7 +125,8 @@ def heythem(network, station, **kwargs):
                     print('-----------------------------------------------------------------------------------------------------\n\n')
                 
                     
-			         
+			     
+    
                 fil.write(evo)
                 event_ids_set.add(evid)
         fil.close()

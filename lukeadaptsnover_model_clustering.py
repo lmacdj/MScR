@@ -41,7 +41,7 @@ import matplotlib.pyplot as plt #issues with matplotlib on srun?
 import time
 from sklearn.model_selection import train_test_split
 
-files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5"]
+files = ["ev0000364000.h5","ev0000593283.h5", "ev0001903830.h5", "ev0002128689.h5",  "ev0000773200.h5", "ev0000447288.h5", "ev0000734973.h5", "Sinosoid.h5", "April2005"]
 
 try: 
     filenum = int(sys.argv[1]) # Which file we want to read.
@@ -54,135 +54,183 @@ try:
     switch = sys.argv[8]
     LR = float(sys.argv[9])
     batch_sz = int(sys.argv[10])
+    state = sys.argv[11]
+    testing = int(sys.argv[12])
+    high_pass = int(sys.argv[13])
+    latent_dim = int(sys.argv[14])
     print("SUCCESSFUL DECLARATION OF VARIABLES")
 except: 
-    filenum = 1
+    filenum = 5
     component = [2]
     station = "all"
     duration = 240
     n_clusters = 6
-    norm = "max"
-    n_epochs = 1
+    norm = "l2"
+    n_epochs = 2
     LR = 0.0001 
     batch_sz = 512
-    switch = "True"
-    print("RUNNING BACKUP VARIABLES")
-train_dataname = f"/nobackup/vsbh19/h5_files/Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_training.h5"
-test_dataname = f"/nobackup/vsbh19/h5_files/TESTING_Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}.h5"
+    switch = False
+    high_pass = 1
+    latent_dim =14
+    print("\n******************\n\nRUNNING BACKUP VARIABLES\n\*****************\n")
+    state = "tremor" #whether we're running tremor file or not 
+if filenum == 7:
+    noise_stamp = True
+else: 
+    noise_stamp = False
+train_dataname = f"/nobackup/vsbh19/h5_files/%sSpectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_{high_pass}_training.h5" %("NOISE_STA" if noise_stamp  else "")
+test_dataname = f"/nobackup/vsbh19/h5_files/TESTING_Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_{high_pass}.h5"
 # with h5py.File(train_dataname, "r") as f:
 #SERIOUSLY IMPORTANT VARIABLEs
 
 #-----------------------------------------------------------------------------------------------------------
-path_add = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}" #for when there are NO clusters assigned
-path_add_cluster = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}"
+if state == "original":
+    path_add = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_{high_pass}_Lat{latent_dim}" #for when there are NO clusters assigned
+    path_add_cluster = f"{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_{high_pass}_Lat{latent_dim}_C{n_clusters}"
+if state == "tremor":
+    path_add = "MSeedSpectrograms_April2005_all_U_120_l2"
+    path_add_cluster = path_add + f"_C{n_clusters}"
+
+
 #=------------------------------------------------------------------------------------------------------------
 
 #END OF SERIOUSLY IMPORTANT VARIABLES
 random.seed(812)
-with h5py.File(train_dataname, "r") as f:
-    datagen = tf.keras.preprocessing.image.ImageDataGenerator(
-                                            samplewise_center=True,
-                                            samplewise_std_normalization=True)
-    
-    #print(f.keys()); sys.exit()
-    try: 
-        X = f["Data"][:]; #GET RID OF THIS AFTER DEBUGGING 
-    except: 
-        X = f["Sinosoid"][:]
-    n,o,p = X.shape; #print(X.shape); sys.exit()
-    #print(f.keys()); sys.exit()
-    try:
-        fre_scale = X.dims[1]["Frequency scale"][:]
-        ti_scale =X.dims[0]["Time scale"][:]
-        indices = f["Indices"][:]
-        try:
-            stations = f["Stations"][:]
-        except:
-            stations = np.ones(len(indices))
-    except:
-        fre_scale = f.get("Frequency scale")[:]
-        ti_scale = f.get("Time scale")[:]
-        indices = f.get("Indices")[:]
-        try:
-            stations= f.get("Stations")[:]
-        except:
-            stations = np.ones(len(indices))
-    try: 
-    
-        truths = f.get("Truths")[:]
-        truth_count = 1
-    except: 
-        truth_count = 0
-        print("NO TRUTH DATA MODEL IS UNSUPERVISED")
+if state == "original":
+    with h5py.File(train_dataname, "r") as f:
+        print("Loading up datafile", train_dataname)
+        datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+                                                samplewise_center=True,
+                                                samplewise_std_normalization=True)
         
-    #print(fre_scale, ti_scale); sys.exit()
-    #X = np.reshape(X, (len(fre_scale), len(ti_scale),1))
-    #fre_mesh, ti_mesh = np.meshgrid(fre_scale, ti_scale)
-    #Sxx = X[:,:,0]
-    #fre_scale = np.reshape(fre_scale, (o,1)); ti_scale = np.reshape(ti_scale, (1,p))
+        #print(f.keys()); sys.exit()
+        try: 
+            X = f["Data"][:]; #GET RID OF THIS AFTER DEBUGGING 
+        except: 
+            X = f["Sinosoid"][:]
+        n,o,p = X.shape; #print(X.shape); sys.exit()
+        #print(f.keys()); sys.exit()
+        try:
+            fre_scale = X.dims[1]["Frequency scale"][:]
+            ti_scale =X.dims[0]["Time scale"][:]
+            indices = f["Indices"][:]
+            try:
+                stations = f["Stations"][:]
+            except:
+                stations = np.ones(len(indices))
+        except:
+            fre_scale = f.get("Frequency scale")[:]
+            ti_scale = f.get("Time scale")[:]
+            indices = f.get("Indices")[:]
+            try:
+                stations= f.get("Stations")[:]
+            except:
+                stations = np.ones(len(indices))
+        try: 
+        
+            truths = f.get("Truths")[:]
+            truth_count = 1
+        except: 
+            truth_count = 0
+            print("NO TRUTH DATA MODEL IS UNSUPERVISED")
+            
+        #print(fre_scale, ti_scale); sys.exit()
+        #X = np.reshape(X, (len(fre_scale), len(ti_scale),1))
+        #fre_mesh, ti_mesh = np.meshgrid(fre_scale, ti_scale)
+        #Sxx = X[:,:,0]
+        #fre_scale = np.reshape(fre_scale, (o,1)); ti_scale = np.reshape(ti_scale, (1,p))
+        
+        #plt.pcolormesh(np.array(X[90,:,:])); sys.exit()
+        # plt.pcolormesh(ti_scale, fre_scale, X[100000,:,:], shading='auto')
+        # plt.colorbar()
+        # sys.exit()
+        #indices = X["Indices"]
+        print(train_dataname, indices, f.keys())
+        assert len(X)== len(indices), f"Length of X {len(X)} should match that of Indices {len(indices)}"
+        assert len(stations) == len(indices), "Length of stations {len(stations)} should match that of Indices {len(indices)}"
+        #sys.exit()
+        #sys.exit()2
+        indices_of_indices = [r for r in range(len(indices))]
+        i = indices.shape
+        X = np.reshape(X, (n,o,p,1))
+        datagen.fit(X)
+        X = datagen.standardize(X) #NOT SURE WHETHER TO DO THIS OR NOT 
+        ti_len = len(ti_scale); fre_len = len(fre_scale)
+        if files[filenum][:-3] != "Sinosoid": #NON SYNTHETIC DATA 
+            X_train_i, X_val_i = train_test_split(indices_of_indices, test_size=0.2, 
+                                          shuffle=True, 
+                                          random_state=812)
+        else: #SYNTEHTIC DATA
+            brea_k = int((2*len(X))/3)
+            X_train_i = indices_of_indices[0:brea_k]#66.7 % training
+            X_val_i = indices_of_indices[brea_k+1:len(X)-1] #33.3% validation data 
+            X_train_truths = truths[0:brea_k]
+            X_val_truths = truths[brea_k+1:len(X)-1]
+            #try:
+        X_train_station = [stations[r] for r in X_train_i]
+        X_val_station = [stations[r] for r in X_val_i]
+        # except: 
+        #     X_train_station = station; X_val_station = station
+        #     print("THERE IS ONLY ONE STATION")
+        X_train_pos = [indices[r] for r in X_train_i] #appends the location in time n
+        X_val_pos =[indices[r] for r in X_val_i] #appends the location in time 
+        X_train = np.reshape([X[r] for r in X_train_i], (len(X_train_i),o,p,1)) #finds the equivalent index for X_train
+        X_val = np.reshape([X[r] for r in X_val_i], (len(X_val_i),o,p,1))
+        
+        if switch == "True": 
+            
+            random_pos_flip = np.random.randint(0, int(len(X_train)), int(math.ceil(len(X_train)/2)))
+            for i in random_pos_flip:
+                X_train[i,:,:,0] = np.flip(X_train[i,:,:,0], 0) #flip along the 0th axis to flip spectorgrams
+            print("SPECTROGRAMS SWITCHED")
+        print("Training samples ", len(X_train), "\nValidation Samples ", len(X_val))
+        
+        
+        # plt.pcolormesh(X_train[50000,:,:,0])
+        # print(X_train[5000,:,:,0]); sys.exit()
+        #sys.exit()
+        del X
     
-    #plt.pcolormesh(np.array(X[90,:,:])); sys.exit()
-    # plt.pcolormesh(ti_scale, fre_scale, X[100000,:,:], shading='auto')
-    # plt.colorbar()
-    # sys.exit()
-    #indices = X["Indices"]
-    print(train_dataname, indices, f.keys())
-    assert len(X)== len(indices), "Length of X should match that of Indices"
-    assert len(stations) == len(indices), "Length of stations should match that of Indices"
-    #sys.exit()
-    #sys.exit()2
-    indices_of_indices = [r for r in range(len(indices))]
-    i = indices.shape
-    X = np.reshape(X, (n,o,p,1))
-    datagen.fit(X)
-    X = datagen.standardize(X) #NOT SURE WHETHER TO DO THIS OR NOT 
-    ti_len = len(ti_scale); fre_len = len(fre_scale)
-    if files[filenum][:-3] != "Sinosoid": #NON SYNTHETIC DATA 
-        X_train_i, X_val_i = train_test_split(indices_of_indices, test_size=0.2, 
+else: 
+    os.chdir("/nobackup/vsbh19")
+    #with h5py.File("./HiNetDownloadApril2005/MSeedSpectrograms_April2005_all_U_120_l2_training.h5", "r") as f:
+    with h5py.File("./h5_files/Tremor_Spectrograms_all_U_120_l2_training.h5", "r") as f:
+        datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+                                                samplewise_center=True,
+                                                samplewise_std_normalization=True)
+        keys = [i for i in f.keys()]
+        print(keys); sys.exit()
+        Xbig = f.get(keys[0])[:]
+        for i in keys[3::3]:
+            X = f.get(i)[:]
+            Xbig = np.concatenate((Xbig, X), axis=0)
+        #for u in keys[]
+            #print(len(X))
+        #sys.exit()
+        n,o,p = Xbig.shape
+        Xbig = np.reshape(Xbig, (n,o,p,1))
+        
+        X = Xbig #such that the program doesnt get confused
+        X = datagen.standardize(X)
+        X_train, X_val = train_test_split(X, test_size=0.2, 
                                       shuffle=True, 
                                       random_state=812)
-    else: #SYNTEHTIC DATA
-        brea_k = int((2*len(X))/3)
-        X_train_i = indices_of_indices[0:brea_k]#66.7 % training
-        X_val_i = indices_of_indices[brea_k+1:len(X)-1] #33.3% validation data 
-        X_train_truths = truths[0:brea_k]
-        X_val_truths = truths[brea_k+1:len(X)-1]
-        #try:
-    X_train_station = [stations[r] for r in X_train_i]
-    X_val_station = [stations[r] for r in X_val_i]
-    # except: 
-    #     X_train_station = station; X_val_station = station
-    #     print("THERE IS ONLY ONE STATION")
-    X_train_pos = [indices[r] for r in X_train_i] #appends the location in time n
-    X_val_pos =[indices[r] for r in X_val_i] #appends the location in time 
-    X_train = np.reshape([X[r] for r in X_train_i], (len(X_train_i),o,p,1)) #finds the equivalent index for X_train
-    X_val = np.reshape([X[r] for r in X_val_i], (len(X_val_i),o,p,1))
-    
-    if switch == "True": 
-        
-        random_pos_flip = np.random.randint(0, int(len(X_train)), int(math.ceil(len(X_train)/2)))
-        for i in random_pos_flip:
-            X_train[i,:,:,0] = np.flip(X_train[i,:,:,0], 0) #flip along the 0th axis to flip spectorgrams
-        print("SPECTROGRAMS SWITCHED")
-    print("Training samples ", len(X_train), "\nValidation Samples ", len(X_val))
-    
-    
-    # plt.pcolormesh(X_train[50000,:,:,0])
-    # print(X_train[5000,:,:,0]); sys.exit()
-    #sys.exit()
-    del X
-    
-
+        #plt.pcolormesh(X_train[np.random.randint(0, len(Xbig)-1),:,:,0]) #take out the first 8 cells for 1 hz
+        #sys.exit()
+        truth_count = 0
 ###########################################################MODEL VARIABLES #############################################################
 #number of frequencies, number of times, number of windows 
 #model = Sequential()
-img_input = Input(shape = (fre_len, ti_len, 1)) #we're looking for latent features held within frequency
+try:
+    img_input = Input(shape = (fre_len, ti_len, 1)) #we're looking for latent features held within frequency
+except:
+    img_input = Input(shape = (o, p, 1))
 date_name = "Nov23"
 depth = 8
 strides = 2 #initial depth increases by 2 at each layer
 kernel_initializer = "glorot_uniform"
 activation = "relu"
-latent_dim = 14 
+
 random.seed(812)
 
 ###############################################CROPPING USING CONVOLUTIONAL AUTOENCODER ###################################################
@@ -219,7 +267,7 @@ autoencoder.summary()
 
 ##############################################################################################################################
 
-logger_fname = f'HistoryLog_LearningCurve_{files[filenum][:-3]}_{station}_{component}_{duration}_{norm}_C{n_clusters}.csv'
+logger_fname = f'HistoryLog_LearningCurve_{path_add_cluster}.csv'
 csv_logger = CSVLogger(logger_fname)
 
 # Early stopping halts training after validation loss stops decreasing for 10 consectutive epochs
@@ -255,6 +303,7 @@ except:
 clustering_layer = ClusteringLayer(n_clusters, name='clustering')(encoder.output)       #Feed embedded samples to 
 model = Model(inputs=autoencoder.input, outputs=[clustering_layer, autoencoder.output], name = "DEC") #Input: Spectrograms, 
 model.compile(loss=['kld',"mse"], loss_weights=[0.1, .9], optimizer=optim) # Initialize model parameters
+#THE FIRST PARAMETER IN THE LIST IS THE BETA VALUE
 #autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_DEC_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration$
 #encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_DEC_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}.h5$
 #-----------------------------RUN K MEANS CLUSTERING ON ENCODED DATA-----------------------------------
@@ -267,32 +316,42 @@ ap = {}
 for i in range(len(kmeans.cluster_centers_)):
     ap[i] = kmeans.cluster_centers_[i]
 clusters = pd.DataFrame(ap)
-clusters.to_csv(f"/nobackup/vsbh19/snovermodels/CLUSTER_CENTRES_{path_add_cluster}.csv")
+clusters.to_csv(f"/nobackup/vsbh19/snovermodels/%sCLUSTER_CENTRES_{path_add_cluster}.csv" %("NOISE_STA" if noise_stamp  else ""))
 print("CLUSTER CENTRES HAVE BEEN EXPORTED")
 model.get_layer(name='clustering').set_weights([kmeans.cluster_centers_]) 
 #----------------------------GET ENCODING FOR TESTING DATA---------------------------------------------------
-try:
-    with h5py.File(test_dataname, "r") as n:
-        X_test = n["Data"][:]
-        print(n.keys())
-        n,o,p = X_test.shape
-        #Test_indices = n["Indices"][:]
-        #Test_stations = n["Stations"][:]
-        X_test = np.reshape(X_test, (n,o,p,1))
-        X_test = datagen.standardize(X_test)
-        try:
-            X_test_pos = n["Indices"][:]
-            X_test_stations = n["Stations"][:]
-        except: 
-            n.get("Indices")[:]
-            n.get("Stations")[:]
-    enc_test = encoder.predict(X_test)
-    labels_test = kmeans.fit_predict(enc_test)
-    labels_last_test = np.copy(labels_test)
-    testing =1 
-except:
-    print("NO TESTING DATA AVAILABLE")
-    testing = 0 
+if testing == 10 or testing == 1: 
+    try:
+        with h5py.File(test_dataname, "r") as n:
+            X_test = n["Data"][:]
+            print(n.keys())
+            n,o,p = X_test.shape
+            #Test_indices = n["Indices"][:]
+            #Test_stations = n["Stations"][:]
+            X_test = np.reshape(X_test, (n,o,p,1))
+            X_test = datagen.standardize(X_test)
+            try:
+                X_test_pos = n["Indices"][:]
+                X_test_stations = n["Stations"][:]
+            except: 
+                n.get("Indices")[:]
+                n.get("Stations")[:]
+        enc_test = encoder.predict(X_test)
+        kmeans = KMeans(n_clusters=n_clusters, n_init = 100) #n_init = number of initizialisations to perform
+        labels_test = kmeans.fit_predict(enc_test)
+        
+        labels_last_test = np.copy(labels_test)
+        testing =1 
+        with h5py.File(f"/nobackup/vsbh19/training_datasets/X_TEST_{path_add_cluster}.h5", "w") as nf: 
+            nf.create_dataset("X_test", data = X_test)
+            nf.create_dataset("Labels_Test", data = labels_test)
+            nf.create_dataset("Labels_Last_Test",data = labels_last_test)
+            nf.create_dataset("Test_Encoded_Data", data = enc_test)
+            nf.create_dataset("X_test_pos", data = X_test_pos)
+            nf.create_dataset("X_test_station", data = X_test_stations)
+    except Exception as e:
+        print("NO TESTING DATA AVAILABLE:", e)
+        testing = 0 
 ###################Save and Show full DEC model architecture##########################
 #from keras.utils import plot_model
 #DEC_model_fname = f'DEC_CAE_Model_{files[filenum][:-3]}_{station}_{component}.png'
@@ -323,38 +382,41 @@ if h == True:
 #     os.makedirs("/nobackup/vsbh19/snovermodels/")
 #dirname = os.path.join("/nobackup/vsbh19/snovermodels/")
 
-autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Autoencoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "")), save_format= "h5") #must be .h5 .keras not compatible
-encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Encoder_Nov23_{path_add}.h5"%("FLIP" if switch == True else "")), save_format= "h5")
-model.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == True else "")), save_format= "h5")
-decoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%sSaved_Decoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "")), save_format= "h5")
+autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%s%sSaved_Autoencoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "", "NOISE_STA" if noise_stamp else "")), save_format= "h5") #must be .h5 .keras not compatible
+encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%s%sSaved_Encoder_Nov23_{path_add}.h5"%("FLIP" if switch == True  else "", "NOISE_STA" if noise_stamp else "")), save_format= "h5")
+model.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%s%sSaved_DEC_Nov23_{path_add_cluster}.h5" %("FLIP" if switch == True else "", "NOISE_STA" if noise_stamp else "")), save_format= "h5")
+decoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/%s%sSaved_Decoder_Nov23_{path_add}.h5" %("FLIP" if switch == True else "", "NOISE_STA" if noise_stamp else "")), save_format= "h5")
 #autoencoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Autoencoder_Nov23_{files[filenum]}.keras")
 #encoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_{files[filenum]}.keras")
-with h5py.File(f"/nobackup/vsbh19/training_datasets/%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == True else "") , "w") as f:
+with h5py.File(f"/nobackup/vsbh19/training_datasets/%s%sX_train_X_val_{path_add_cluster}.h5" %("FLIP" if switch == True else "", "NOISE_STA" if noise_stamp else "") , "w") as f:
     f.create_dataset("X_train", data= X_train)
     f.create_dataset("X_val", data = X_val)
     f.create_dataset("Labels_Train", data = labels_train)
     f.create_dataset("Labels_Last_Train", data = labels_last_train)
     f.create_dataset("Trained_Encoded_Data", data = enc_train)
     
-    if testing == 1:
-        f.create_dataset("X_test", data = X_test)
-        f.create_dataset("Labels_Test", data = labels_test)
-        f.create_dataset("Labels_Last_Test",data = labels_last_train)
-        f.create_dataset("Test_Encoded_Data", data = enc_test)
-        f.create_dataset("X_test_pos", data = X_test_pos)
-        f.create_dataset("X_test_station", data = X_test_stations)
+    # if testing == 1:
+    #     f.create_dataset("X_test", data = X_test)
+    #     f.create_dataset("Labels_Test", data = labels_test)
+    #     f.create_dataset("Labels_Last_Test",data = labels_last_train)
+    #     f.create_dataset("Test_Encoded_Data", data = enc_test)
+    #     f.create_dataset("X_test_pos", data = X_test_pos)
+    #     f.create_dataset("X_test_station", data = X_test_stations)
+    try:
     #TIME STAMPS 
-    f.create_dataset("X_train_pos", data = X_train_pos)
-    f.create_dataset("X_val_pos", data = X_val_pos)
+        f.create_dataset("X_train_pos", data = X_train_pos)
+        f.create_dataset("X_val_pos", data = X_val_pos)
     #STATION STAMPS
-    f.create_dataset("X_train_station", data = X_train_station)
-    f.create_dataset("X_val_station", data = X_train_station)
-    f["Frequency scale"] = np.array(fre_scale)
-    f["Frequency scale"].make_scale("Frequency scale")
-    f["X_train"].dims[1].attach_scale(f["Frequency scale"])
-    f["Time scale"] = np.array(ti_scale)
-    f["Time scale"].make_scale("Time scale")
-    f["X_train"].dims[0].attach_scale(f["Time scale"])
+        f.create_dataset("X_train_station", data = X_train_station)
+        f.create_dataset("X_val_station", data = X_train_station)
+        f["Frequency scale"] = np.array(fre_scale)
+        f["Frequency scale"].make_scale("Frequency scale")
+        f["X_train"].dims[1].attach_scale(f["Frequency scale"])
+        f["Time scale"] = np.array(ti_scale)
+        f["Time scale"].make_scale("Time scale")
+        f["X_train"].dims[0].attach_scale(f["Time scale"])
+    except Exception as e:
+        print("EXCEPTION IN EXPORTATION DUE TO", e)
     if truth_count == 1: 
         print("Creating Truth Dataset")
         f.create_dataset("Truths_Train", data = X_train_truths)

@@ -42,68 +42,96 @@ except:
     station = "all"
     duration = 40
 train_dataname = f"/nobackup/vsbh19/h5_files/Spectrograms_{files[filenum][:-3]}_{station}_{component}_{duration}_training.h5"
+state = "tremor"
 # with h5py.File(train_dataname, "r") as f:
 random.seed(812)
-with h5py.File(train_dataname, "r") as f:
-    datagen = tf.keras.preprocessing.image.ImageDataGenerator(
-                                            samplewise_center=True,
-                                            samplewise_std_normalization=True)
-    
-    #print(f.keys()); sys.exit()
-    try: 
-        X = f["Data"][:]; 
-    except: 
-        X = f["Sinosoid"][:]
-    n,o,p = X.shape; #print(X.shape); sys.exit()
-    #print(f.keys()); sys.exit()
-    try:
-        fre_scale = X.dims[1]["Frequency scale"][:]
-        ti_scale =X.dims[0]["Time scale"][:]
-        indices = f["Indices"][:]
-    except:
-        fre_scale = f.get("Frequency scale")[:]
-        ti_scale = f.get("Time scale") [:]
-        indices = f.get("Indices")[:]
-    #print(fre_scale, ti_scale); sys.exit()
-    #X = np.reshape(X, (len(fre_scale), len(ti_scale),1))
-    #fre_mesh, ti_mesh = np.meshgrid(fre_scale, ti_scale)
-    #Sxx = X[:,:,0]
-    #fre_scale = np.reshape(fre_scale, (o,1)); ti_scale = np.reshape(ti_scale, (1,p))
-    
-    #plt.pcolormesh(np.array(X[90,:,:])); sys.exit()
-    # plt.pcolormesh(ti_scale, fre_scale, X[100000,:,:], shading='auto')
-    # plt.colorbar()
-    # sys.exit()
-    #indices = X["Indices"]
-    print(train_dataname, indices, f.keys())
-    assert len(X)== len(indices), "Length of X should match that of Indices"
-    #sys.exit()2
-    indices_of_indices = [r for r in range(len(indices))]
-    i = indices.shape
-    X = np.reshape(X, (n,o,p,1))
-    datagen.fit(X)
-    X = datagen.standardize(X) #NOT SURE WHETHER TO DO THIS OR NOT 
-    ti_len = len(ti_scale); fre_len = len(fre_scale)
-    X_train_i, X_val_i = train_test_split(indices_of_indices, test_size=0.2, 
+if state == "original":
+    with h5py.File(train_dataname, "r") as f:
+        datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+                                                samplewise_center=True,
+                                                samplewise_std_normalization=True)
+        
+        #print(f.keys()); sys.exit()
+        try: 
+            X = f["Data"][:]; 
+        except: 
+            X = f["Sinosoid"][:]
+        n,o,p = X.shape; #print(X.shape); sys.exit()
+        #print(f.keys()); sys.exit()
+        try:
+            fre_scale = X.dims[1]["Frequency scale"][:]
+            ti_scale =X.dims[0]["Time scale"][:]
+            indices = f["Indices"][:]
+        except:
+            fre_scale = f.get("Frequency scale")[:]
+            ti_scale = f.get("Time scale") [:]
+            indices = f.get("Indices")[:]
+        #print(fre_scale, ti_scale); sys.exit()
+        #X = np.reshape(X, (len(fre_scale), len(ti_scale),1))
+        #fre_mesh, ti_mesh = np.meshgrid(fre_scale, ti_scale)
+        #Sxx = X[:,:,0]
+        #fre_scale = np.reshape(fre_scale, (o,1)); ti_scale = np.reshape(ti_scale, (1,p))
+        
+        #plt.pcolormesh(np.array(X[90,:,:])); sys.exit()
+        # plt.pcolormesh(ti_scale, fre_scale, X[100000,:,:], shading='auto')
+        # plt.colorbar()
+        # sys.exit()
+        #indices = X["Indices"]
+        print(train_dataname, indices, f.keys())
+        assert len(X)== len(indices), "Length of X should match that of Indices"
+        #sys.exit()2
+        indices_of_indices = [r for r in range(len(indices))]
+        i = indices.shape
+        X = np.reshape(X, (n,o,p,1))
+        datagen.fit(X)
+        X = datagen.standardize(X) #NOT SURE WHETHER TO DO THIS OR NOT 
+        ti_len = len(ti_scale); fre_len = len(fre_scale)
+        X_train_i, X_val_i = train_test_split(indices_of_indices, test_size=0.2, 
+                                          shuffle=True, 
+                                          random_state=812)
+        X_train_pos = [indices[r] for r in X_train_i] #appends the location in time n
+        X_val_pos =[indices[r] for r in X_val_i] #appends the location in time 
+        X_train = np.reshape([X[r] for r in X_train_i], (len(X_train_i),o,p,1)) #finds the equivalent index for X_train
+        X_val = np.reshape([X[r] for r in X_val_i], (len(X_val_i),o,p,1))
+        
+        #X_train = X
+        #X_val = X_train
+        # plt.pcolormesh(X_train[50000,:,:,0])
+        # print(X_train[5000,:,:,0]); sys.exit()
+        #sys.exit()
+        del X
+
+else: 
+    os.chdir("/nobackup/vsbh19")
+    with h5py.File("./HiNetDownloadApril2005/MSeedSpectrograms_April2005_all_U_120_l2_training.h5", "r") as f:
+        datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+                                                samplewise_center=True,
+                                                samplewise_std_normalization=True)
+        keys = [i for i in f.keys()]
+        Xbig = f.get(keys[0])[:]
+        for i in keys[1:]:
+            X = f.get(i)[:]
+            Xbig = np.concatenate((Xbig, X), axis=0)
+            #print(len(X))
+        #sys.exit()
+        n,o,p = Xbig.shape
+        Xbig = np.reshape(Xbig, (n,o,p,1))
+        
+        X = Xbig #such that the program doesnt get confused
+        X_train, X_val = train_test_split(X, test_size=0.2, 
                                       shuffle=True, 
                                       random_state=812)
-    X_train_pos = [indices[r] for r in X_train_i] #appends the location in time n
-    X_val_pos =[indices[r] for r in X_val_i] #appends the location in time 
-    X_train = np.reshape([X[r] for r in X_train_i], (len(X_train_i),o,p,1)) #finds the equivalent index for X_train
-    X_val = np.reshape([X[r] for r in X_val_i], (len(X_val_i),o,p,1))
-    
-    #X_train = X
-    #X_val = X_train
-    # plt.pcolormesh(X_train[50000,:,:,0])
-    # print(X_train[5000,:,:,0]); sys.exit()
-    #sys.exit()
-    del X
-    
+        #plt.pcolormesh(X_train[np.random.randint(0, len(Xbig)-1),:,:,0]) #take out the first 8 cells for 1 hz
+        #sys.exit()
+        truth_count = 0
+
+
+
 
 ###########################################################MODEL VARIABLES #############################################################
 #number of frequencies, number of times, number of windows 
 #model = Sequential()
-img_input = Input(shape = (fre_len, ti_len, 1)) #we're looking for latent features held within frequency
+img_input = Input(shape = (o, p, 1)) #we're looking for latent features held within frequency
 date_name = "Nov23"
 depth = 8
 strides = 2 #initial depth increases by 2 at each layer
@@ -193,8 +221,8 @@ plt.show()
 #     os.makedirs("/nobackup/vsbh19/snovermodels/")
 #dirname = os.path.join("/nobackup/vsbh19/snovermodels/")
 
-autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_Autoencoder_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}.h5"), save_format= "h5") #must be .h5 .keras not compatible
-encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_{files[filenum][:-3]}_{station}_{component}_{duration}.h5"), save_format= "h5")
+autoencoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/{path_add}.h5"), save_format= "h5") #must be .h5 .keras not compatible
+encoder.save(os.path.abspath(f"/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_{path_add}.h5"), save_format= "h5")
 
 #autoencoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Autoencoder_Nov23_{files[filenum]}.keras")
 #encoder.save(f"/nobackup/vsbh19/snovermodels/Saved_Encoder1_Nov23_{files[filenum]}.keras")

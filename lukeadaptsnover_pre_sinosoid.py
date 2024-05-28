@@ -15,6 +15,7 @@ import h5py
 import sys
 from sklearn.preprocessing import normalize
 import h5py 
+import math
 #random.seed(812)
 # def sin(timeto, onoff, samplerate, onofflength, frequency):
 #     x = np.linspace(0,timeto, timeto*samplerate)
@@ -37,6 +38,7 @@ import h5py
 # #print(x.shape, sins.shape)
 def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets, summed_frequencies, dampening, norm):
     snippets = np.zeros((number, timeto*samplerate))
+    indices = []
     x = np.linspace(0, timeto, timeto * samplerate)
     length = len(x)
     onoff_idx = np.random.randint(timeto * samplerate, size=int(onofflength))
@@ -49,15 +51,16 @@ def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets,
     
     global truths
     truths = np.zeros((number,)) #the truths array
-    array = np.zeros((length,)) # the data array
     for i in range(number):
         #if wavelets == True: 
         global random_selection; random_selection = np.random.randint(0,4)
         
+        array = np.zeros((length,)) # the data array
         if random_selection == 0:
             
             #if np.random.randint(0,2) == 0: 
             wavelet = signal.ricker(2000, np.random.choice(wavelet_widths)) * 0.1
+            
             # plt.plot(wavelet); sys.exit()
             truths[i] = 1 
             global random_point
@@ -65,6 +68,8 @@ def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets,
  
             
             array[random_point:random_point+len(wavelet)] =  wavelet / np.max(np.abs(wavelet)) #normalisation
+            print("amp wavelet", np.max(array[random_point:random_point+len(wavelet)]))
+            #plt.plot(array); sys.exit()
             #else: 
                 #truths[i] = 0
             #frequency = np.random.normal(3,1)
@@ -76,6 +81,7 @@ def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets,
             frequency2 = random.uniform(0.2,1.5)
             
             array[:] = np.sin(x * frequency1 * 2 * np.pi)
+            print("amp sinosoid", np.max(array))
             array[:]+= np.sin(x * frequency2 * 2 * np.pi)
             truths[i] = 2 if truth_ultra == True else 1 
         elif random_selection == 2:
@@ -86,6 +92,7 @@ def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets,
             carrier_frequency =  modulation_signal * 1 + 1 #* frequencies_f[0] * 0.5
             #array[:] = np.sin(x*frequencies_f[np.random.randint(frequencies_f.shape[0])]*2*np.pi)
             array[:] = 5*np.sin(x*carrier_frequency*2*np.pi)
+            print("amp mod", np.max(array[:]))
             truths[i] = 3 if truth_ultra == True else 1 
         elif random_selection == 3:
             array[:] = np.zeros(len(x))
@@ -100,19 +107,22 @@ def sin(timeto, number, samplerate, onofflength, intensity, amplitude, wavelets,
         #         break
         #         #print("g")
         global noise
-        noise = np.random.normal(scale = np.max(array[:]), size = length)*intensity #mu, sigma, samples
-        
+        noise = np.random.normal(scale = np.max(array[:]), size = length)#mu, sigma, samples
+        intense_factor = np.random.choice(intensity) if noise_stamp == True else intensity
+        print("noise bassline amp", np.max(noise), random_selection)
+        print("S-N R", np.max(array)/np.max(noise), random_selection)
+        noise *= intense_factor
         array+= noise
-        
+        indices.append(intense_factor)
         # add = normalize([array], norm = norm) #normalise requires 2d shapoe
         # add = np.reshape (array, (length,)) #reshape it back to original
         snippets[i,:] = array
     snippets = normalize(snippets, norm = norm)
-    return x, snippets, truths 
+    return x, snippets, truths , indices 
 ####------------------------PARAMETERS FOR SINOSOID-------------------------------
-# Generate 40 seconds snippets with random frequencies
+#%% Generate 40 seconds snippets with random frequencies
 timeto = 240
-number = 100000
+number = 100
 samplerate = 100
 onofflength = 200
 amplitude = 4 
@@ -120,16 +130,20 @@ background_damp = 0.25
 
 summed_frequencies = True
 differing_frequencies = True
-#global wavelet
 wavelets = True 
-intensity = 4 #noise intensity
+noise_stamp = True 
+#%% 
+if noise_stamp == True: 
+    intensity = [np.around(i,decimals =2) for i in np.logspace(-2,5,num = 10, dtype = float)] #analysis of how sensitive the system is to noise 
+else:
+    intensity = 4 #noise intensity
 seg =int(720*(timeto/40)) #for SHAPE=(None, 140, 41, 1)
 lap =int(639*(timeto/40))#from the snover study of 90s overlap
 if all([summed_frequencies, differing_frequencies,wavelets]): #if all the variables are true
     truth_ultra = True 
 #------------------------------------------------------------------------------------
 #sys.exit()
-x, sins, truths = sin(timeto, number, samplerate, onofflength, intensity, amplitude,wavelets, summed_frequencies, background_damp, norm = "l2")
+x, sins, truths, indices = sin(timeto, number, samplerate, onofflength, intensity, amplitude,wavelets, summed_frequencies, background_damp, norm = "l2")
 frequencies, times, Sxx = spectrogram(sins[0], 100, nperseg = seg, noverlap = lap, window = "blackman")
 fre_cro_i = 140 #was 140  # indexes the data so that it is CROPPED to 45Hz (originally), now at 24 hertz
 Sxx = Sxx[:fre_cro_i]
@@ -151,15 +165,14 @@ fig, axes = plt.subplots(2, 1, figsize=(29,8))
 
 axes[0].pcolormesh(times, frequencies, Sxx)
 
-plt.title(f"Spectrogram for truths{truths[0]}")
+plt.title(f"Spectrogram for truths{truths[0]} and {indices[0]}")
 axes[1].plot(sins[0]);
+#print(indices)
 sys.exit(0)
-
+stations = np.ones(number)
 tobe = np.zeros((number, len(frequencies), len(times)))
 tobe[0, :, :] = Sxx
 # ^initial run to get sizes of frequencies and time
-indices = np.linspace(1,number, num=number, dtype = int)
-stations = np.linspace(1,number, num = number, dtype = int)
 #indices.append(1)
 print("Spectrograms have been created")
 for i,u in enumerate(sins[1:]):
@@ -179,7 +192,7 @@ for i,u in enumerate(sins[1:]):
 if len(indices) != number: 
     print("get a life loser xxx"); sys.exit()
 print(indices)
-with h5py.File(f"/nobackup/vsbh19/h5_files/Spectrograms_Sinosoid_Sinosoid_[2]_{timeto}_{norm}_training.h5" , "w") as f:
+with h5py.File(f"/nobackup/vsbh19/h5_files/%sSpectrograms_Sinosoid_Sinosoid_[2]_{timeto}_l2_training.h5" %("NOISE_STA" if noise_stamp else "") , "w") as f:
     f.create_dataset("Sinosoid", data = tobe) #uploads the data into the h5 file
     locset = f.create_dataset("Indices", data = indices)
     f.create_dataset("Stations", data = stations)
